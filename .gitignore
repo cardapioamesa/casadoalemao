@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+teste-*
+semente-artifact.html
+.claude/

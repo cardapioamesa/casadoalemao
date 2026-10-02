@@ -1,0 +1,631 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Casa do Alemão · Cardápio</title>
+<meta name="description" content="Cardápio da Casa do Alemão: sanduíches, croquetes, salsicharia, pratos alemães, cafés e doces. Receitas de família desde 1945.">
+<meta property="og:title" content="Casa do Alemão · Cardápio">
+<meta property="og:description" content="Croquete, pão com linguiça e receitas de família desde 1945. Veja o cardápio com preços.">
+<meta property="og:image" content="https://cardapioamesa.github.io/casadoalemao/img/logo.png">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#F4EDE3">
+<link rel="icon" href="img/marca.png">
+<link rel="apple-touch-icon" href="img/logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Libre+Franklin:wght@400;500;600;700&family=Playfair+Display:ital,wght@1,500&display=swap">
+<link rel="stylesheet" href="mesa.css?v=1">
+<style>
+  /* Os nomes das variáveis vêm do modelo do Cardápio à Mesa (o primeiro cliente
+     era escuro): --ink é o fundo, --rice o texto, --beni a cor da marca e
+     --dashi o destaque. Aqui: papel creme, vermelho da placa e verde Kern. */
+  :root{
+    --ink:#F4EDE3;
+    --ink-2:#FFFBF5;
+    --ink-3:#EDE3D6;
+    --line:#E2D5C4;
+    --rice:#2D2A26;
+    --ash:#6B6158;
+    --ash-dim:#968B7F;
+    --beni:#C8102E;
+    --beni-lt:#A50E26;
+    --dashi:#0B5D35;
+
+    --display:"Oswald",'Arial Narrow',Impact,sans-serif;
+    --body:"Libre Franklin",'Segoe UI',system-ui,sans-serif;
+    --script:"Playfair Display",Georgia,serif;
+
+    --wrap:1040px;
+    color-scheme:light;
+
+    padding-top:env(safe-area-inset-top, 0px);
+    padding-bottom:env(safe-area-inset-bottom, 0px);
+  }
+
+  *{box-sizing:border-box}
+  [hidden]{display:none!important}
+
+  body{
+    margin:0;
+    background:var(--ink);
+    color:var(--rice);
+    font-family:var(--body);
+    font-size:16px;
+    line-height:1.55;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  img{display:block;max-width:100%}
+  a{color:inherit}
+  :focus-visible{outline:2px solid var(--beni);outline-offset:3px;border-radius:4px}
+  .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+  .wrap{width:100%;max-width:var(--wrap);margin-inline:auto;padding-inline:20px}
+
+  /* faixa vermelha e verde, como a fita dos Produtos Kern */
+  .fita{height:5px;background:linear-gradient(90deg,var(--beni) 0 50%,var(--dashi) 50% 100%)}
+
+  /* ---------- barra fixa ---------- */
+  .bar{
+    position:sticky;top:env(safe-area-inset-top, 0px);z-index:40;
+    background:rgba(244,237,227,.9);
+    backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    border-bottom:1px solid var(--line);
+  }
+  .bar-in{display:flex;align-items:center;gap:14px;padding-block:10px}
+  .bar-mark{display:flex;align-items:center;gap:9px;flex:0 0 auto;text-decoration:none}
+  .bar-mark img{width:34px;height:34px;border-radius:50%;box-shadow:0 0 0 2px #fff, 0 2px 6px rgba(45,42,38,.25)}
+  .bar-mark b{font-family:var(--display);font-weight:600;font-size:17px;letter-spacing:.06em;text-transform:uppercase}
+  .tabs{
+    position:relative;
+    display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;
+    margin-left:auto;padding-block:2px;-webkit-overflow-scrolling:touch;
+  }
+  .tabs::-webkit-scrollbar{display:none}
+  .tabs a{
+    flex:0 0 auto;text-decoration:none;
+    font-family:var(--display);font-size:14px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;
+    color:var(--ash);padding:6px 12px;border-radius:999px;white-space:nowrap;
+    transition:color .18s ease,background .18s ease;
+  }
+  .tabs a:hover{color:var(--rice)}
+  .tabs a[aria-current="true"]{color:#fff;background:var(--beni)}
+  .btn-dono{
+    flex:0 0 auto;margin-left:6px;background:none;
+    border:1px solid rgba(11,93,53,.4);color:var(--dashi);
+    font:inherit;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+    padding:7px 13px;border-radius:999px;cursor:pointer;white-space:nowrap;
+  }
+  .btn-dono:hover{background:rgba(11,93,53,.07)}
+
+  /* ---------- abertura ---------- */
+  .hero{position:relative;text-align:center;padding-bottom:44px;border-bottom:1px solid var(--line)}
+  .hero-foto{position:relative;height:clamp(230px,42vw,400px);overflow:hidden}
+  .hero-foto img{width:100%;height:100%;object-fit:cover;object-position:50% 40%}
+  .hero-foto::after{
+    content:"";position:absolute;inset:0;
+    background:linear-gradient(180deg,rgba(45,42,38,0) 45%,rgba(244,237,227,.55) 82%,var(--ink) 100%);
+  }
+  .hero-in{position:relative;margin-top:clamp(-150px,-17vw,-90px)}
+  .placa{
+    width:min(330px,74vw);height:auto;margin:0 auto;border-radius:14px;
+    border:5px solid #fff;
+    box-shadow:0 18px 44px rgba(45,42,38,.35), 0 2px 0 rgba(45,42,38,.08);
+  }
+  .desde{
+    margin:22px 0 10px;font-family:var(--script);font-style:italic;font-size:19px;color:var(--beni);
+  }
+  .lede{max-width:36ch;margin:0 auto;color:var(--ash);font-size:16.5px;line-height:1.6;text-wrap:balance}
+
+  .cta-row{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:26px}
+  .cta{
+    display:inline-flex;align-items:center;gap:9px;text-decoration:none;
+    font-weight:700;font-size:14.5px;letter-spacing:.02em;
+    padding:13px 24px;border-radius:999px;border:0;font-family:inherit;cursor:pointer;
+    transition:transform .18s ease, background .18s ease, border-color .18s ease;
+  }
+  .cta-a{background:var(--beni);color:#fff;box-shadow:0 10px 24px rgba(200,16,46,.25)}
+  .cta-a:hover{background:var(--beni-lt);transform:translateY(-2px)}
+  .cta-b{border:1px solid var(--line);color:var(--rice);background:var(--ink-2)}
+  .cta-b:hover{border-color:var(--dashi);color:var(--dashi);transform:translateY(-2px)}
+
+  /* ---------- seções ---------- */
+  section{padding-block:52px 8px;scroll-margin-top:72px}
+  .sec-head{margin-bottom:22px}
+  .eyebrow{
+    display:flex;align-items:center;gap:10px;margin:0 0 6px;
+    font-size:12px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--beni);
+  }
+  .eyebrow::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,var(--line),transparent)}
+  .sec-head h2{
+    font-family:var(--display);font-weight:600;text-transform:uppercase;
+    font-size:clamp(30px,7vw,44px);letter-spacing:.02em;margin:0;line-height:1.05;
+  }
+  .sec-note{margin:10px 0 0;color:var(--ash);font-size:15px;max-width:60ch;white-space:pre-line}
+  .capa{
+    width:100%;aspect-ratio:2.4/1;max-height:300px;object-fit:cover;border-radius:16px;margin:0 0 18px;
+    background:var(--ink-3);box-shadow:0 10px 28px rgba(45,42,38,.14);
+  }
+
+  /* ---------- carta: nome, descrição e preço, como no cardápio impresso ---------- */
+  .carta{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 40px}
+  .carta.com-colunas{grid-template-columns:minmax(0,1fr);max-width:760px}
+  .carta-cab{
+    display:flex;justify-content:flex-end;gap:10px;padding:0 2px 8px;
+    border-bottom:2px solid var(--rice);
+  }
+  .carta-cab span{
+    width:84px;text-align:right;font-size:10.5px;font-weight:700;line-height:1.25;
+    letter-spacing:.08em;text-transform:uppercase;color:var(--ash);
+  }
+  .prato{
+    display:flex;align-items:flex-start;gap:14px;width:100%;text-align:left;
+    background:none;border:0;border-top:1px dashed var(--line);
+    padding:14px 2px;margin:0;color:inherit;font:inherit;cursor:default;
+  }
+  .carta > .prato:first-child,.carta:not(.com-colunas) > .prato:nth-child(2){border-top:0}
+  .carta-cab + .prato{border-top:0}
+  .prato.tem-foto{cursor:pointer}
+  .prato.tem-foto:hover .mini-foto{transform:scale(1.05)}
+  .prato-corpo{flex:1;min-width:0}
+  .prato-nome{display:block;font-weight:700;font-size:16px;line-height:1.3}
+  .prato-desc{display:block;margin-top:3px;color:var(--ash);font-size:14px;line-height:1.5}
+  .mini-foto{
+    flex:0 0 auto;width:62px;height:62px;border-radius:12px;overflow:hidden;background:var(--ink-3);
+    box-shadow:0 4px 12px rgba(45,42,38,.18);transition:transform .25s ease;
+  }
+  .mini-foto img{width:100%;height:100%;object-fit:cover}
+  .precos{flex:0 0 auto;display:flex;gap:10px}
+  .pr{
+    width:84px;text-align:right;font-weight:700;font-size:16px;
+    font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--rice);
+  }
+  .precos.um .pr{width:auto}
+  .pr small{font-size:11px;font-weight:600;color:var(--ash-dim);margin-right:3px}
+  .pr.consulte{font-size:12px;font-weight:600;color:var(--ash-dim)}
+
+  .tag{
+    display:inline-block;margin-top:6px;
+    font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--ash);border:1px solid var(--line);border-radius:999px;padding:2px 8px;white-space:nowrap;
+  }
+  .tag.tag-forte{color:var(--beni);border-color:rgba(200,16,46,.4);background:rgba(200,16,46,.05)}
+  .selo-esgotado{
+    display:inline-block;margin-top:6px;
+    font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+    color:#fff;background:var(--beni);border-radius:999px;padding:3px 9px;
+  }
+  .fora .prato-nome,.fora .pr,.fora .dish-name,.fora .price{color:var(--ash-dim)}
+  .fora .pr,.fora .price{text-decoration:line-through;text-decoration-color:rgba(107,97,88,.5)}
+  .fora img{filter:grayscale(1) opacity(.6)}
+
+  /* ---------- destaques: cartões com foto ---------- */
+  .specials{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+  .special{
+    display:flex;flex-direction:column;text-align:left;overflow:hidden;
+    background:var(--ink-2);border:1px solid var(--line);border-radius:18px;
+    padding:0;color:inherit;font:inherit;cursor:pointer;
+    box-shadow:0 8px 22px rgba(45,42,38,.08);
+    transition:transform .2s ease, box-shadow .2s ease;
+  }
+  .special:hover{transform:translateY(-3px);box-shadow:0 14px 30px rgba(45,42,38,.14)}
+  .card-foto{display:block;aspect-ratio:4/3;background:var(--ink-3);overflow:hidden}
+  .card-foto img{width:100%;height:100%;object-fit:cover}
+  .card-foto.vazia{
+    display:grid;place-items:center;background:var(--beni);color:#fff;
+    background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.06) 0 10px,transparent 10px 20px);
+  }
+  .card-foto.vazia svg{width:76px;height:76px;opacity:.95}
+  .card-corpo{display:flex;flex-direction:column;flex:1;padding:16px 18px 18px}
+  .special .dish-name{font-family:var(--display);font-weight:600;font-size:23px;text-transform:uppercase;letter-spacing:.02em;line-height:1.1}
+  .special .dish-desc{display:block;margin-top:6px;color:var(--ash);font-size:14px;line-height:1.5}
+  .special .price{margin-top:auto;padding-top:12px;font-weight:700;font-size:19px;font-variant-numeric:tabular-nums}
+  .special .price small{font-size:12px;color:var(--ash-dim);margin-right:3px}
+
+  /* ---------- lista curta: bebidas, adicionais ---------- */
+  .drinks{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 40px}
+  .drink{display:flex;align-items:baseline;gap:10px;padding:10px 2px;border-top:1px dashed var(--line)}
+  .drink:first-child,.drink:nth-child(2){border-top:0}
+  .drink-name{flex:0 1 auto;min-width:0;font-size:15.5px;font-weight:600;line-height:1.35}
+  .drink-tag{font-size:12.5px;font-weight:400;color:var(--ash-dim);white-space:nowrap;margin-left:4px}
+  .drink.fora .drink-name,.drink.fora .drink-price{color:var(--ash-dim)}
+  .drink.fora .drink-price{text-decoration:line-through}
+  .selo-bebida{margin-top:0;flex:0 0 auto;white-space:nowrap}
+  .dots{
+    flex:1;min-width:16px;height:1px;align-self:flex-end;margin-bottom:6px;
+    background-image:radial-gradient(circle, var(--ash-dim) 1px, transparent 1.2px);
+    background-size:6px 1px;background-repeat:repeat-x;opacity:.6;
+  }
+  .drink-price{font-weight:700;font-size:15.5px;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .drink-price small{font-size:11px;font-weight:600;color:var(--ash-dim);margin-right:3px}
+  .garrafa{flex:0 0 40px;height:40px;border-radius:9px;overflow:hidden;align-self:center}
+  .garrafa img{width:100%;height:100%;object-fit:cover}
+  .garrafa.vazia{visibility:hidden}
+
+  /* ---------- quadros de texto: acompanhamentos e molhos ---------- */
+  .quadros{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+  .quadro{border-radius:16px;padding:18px 18px 20px;background:var(--ink-2);border:1px solid var(--line)}
+  .quadro h3{
+    margin:0 0 6px;font-family:var(--display);font-weight:600;font-size:18px;
+    letter-spacing:.03em;text-transform:uppercase;color:var(--beni);
+  }
+  .quadro p{margin:0;color:var(--ash);font-size:14.5px;line-height:1.6;white-space:pre-line}
+  .quadro:last-child{background:var(--beni);border-color:var(--beni)}
+  .quadro:last-child h3{color:#fff}
+  .quadro:last-child p{color:rgba(255,255,255,.9)}
+
+  /* ---------- pratos com foto (estilo antigo, ainda aceito) ---------- */
+  .dishes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 34px}
+  .dish{
+    display:flex;align-items:center;gap:16px;width:100%;text-align:left;
+    background:none;border:0;border-top:1px dashed var(--line);
+    padding:14px 2px;margin:0;color:inherit;font:inherit;cursor:pointer;
+  }
+  .dish:first-child,.dish:nth-child(2){border-top:0}
+  .thumb{flex:0 0 auto;width:76px;height:76px;border-radius:14px;overflow:hidden;background:var(--ink-3)}
+  .thumb img{width:100%;height:100%;object-fit:cover}
+  .dish-body{flex:1;min-width:0}
+  .dish .dish-name{display:block;font-weight:700;font-size:16px}
+  .dish .dish-desc{display:block;margin-top:3px;color:var(--ash);font-size:14px}
+  .dish .price{font-weight:700;white-space:nowrap}
+
+  /* ---------- história ---------- */
+  .historia{
+    display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:30px;align-items:center;
+    margin-top:64px;padding:26px;border-radius:22px;background:var(--ink-2);border:1px solid var(--line);
+  }
+  .historia img{width:100%;height:auto;border-radius:14px;box-shadow:0 10px 26px rgba(45,42,38,.2)}
+  .historia h2{
+    margin:0 0 10px;font-family:var(--display);font-weight:600;text-transform:uppercase;
+    font-size:clamp(26px,5vw,36px);line-height:1.05;
+  }
+  .historia p{margin:0;color:var(--ash);font-size:15.5px;line-height:1.7;white-space:pre-line}
+  .historia .eyebrow{color:var(--beni);margin-bottom:6px}
+
+  /* ---------- rodapé: fundo escuro, as variáveis mudam só aqui ---------- */
+  footer{
+    --ink-2:#36322D;--rice:#F4EDE3;--ash:#CDC2B5;--ash-dim:#A39888;--line:#4D463F;--dashi:#E9C579;
+    margin-top:64px;padding-block:44px 48px;background:#2D2A26;color:var(--rice);text-align:center;
+  }
+  footer .placa{width:min(220px,60vw);border-width:4px;box-shadow:0 12px 30px rgba(0,0,0,.4)}
+  .foot-name{
+    font-family:var(--display);font-weight:600;font-size:22px;letter-spacing:.06em;
+    text-transform:uppercase;margin:20px 0 4px;
+  }
+  .foot-sub{margin:0;color:var(--ash);font-size:14.5px}
+  .foot-links{display:flex;flex-direction:column;align-items:center;gap:22px;margin-top:24px}
+
+  .infos{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;width:100%;max-width:860px}
+  .infos-2{grid-template-columns:repeat(2,minmax(0,1fr));max-width:600px}
+  .infos-1{grid-template-columns:minmax(0,1fr);max-width:320px}
+  .info{
+    display:flex;flex-direction:column;align-items:center;gap:7px;text-align:center;
+    padding:20px 16px 18px;border:1px solid var(--line);border-radius:16px;
+    background:rgba(244,237,227,.04);color:var(--rice);text-decoration:none;
+    transition:border-color .18s ease, background .18s ease;
+  }
+  a.info:hover{border-color:rgba(233,197,121,.6);background:rgba(233,197,121,.06)}
+  .info-icone{
+    width:44px;height:44px;border-radius:50%;display:grid;place-items:center;
+    color:var(--dashi);border:1px solid rgba(233,197,121,.4);margin-bottom:3px;
+  }
+  .info-icone svg{width:21px;height:21px}
+  .acoes{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;align-items:center}
+  .cta-insta{
+    gap:10px;color:var(--rice);border:1.5px solid transparent;
+    background:
+      linear-gradient(var(--ink-2), var(--ink-2)) padding-box,
+      linear-gradient(120deg, #FFD600, #FF7A00 28%, #FF2D6B 55%, #D4148E 75%, #7C2BF0) border-box;
+    transition:transform .18s ease, box-shadow .18s ease;
+  }
+  .cta-insta:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(228,20,142,.28)}
+  .cta-insta svg{width:20px;height:20px;flex:0 0 auto}
+  .cta-insta span{letter-spacing:.01em}
+  .cta-whats{
+    width:48px;height:48px;border-radius:50%;flex:0 0 auto;
+    display:grid;place-items:center;background:#25D366;
+    box-shadow:0 8px 22px rgba(37,211,102,.28);
+    transition:transform .18s ease, box-shadow .18s ease;
+  }
+  .cta-whats:hover{transform:translateY(-2px);box-shadow:0 10px 26px rgba(37,211,102,.4)}
+  .cta-whats svg{width:26px;height:26px}
+  .info-rotulo{font-size:10.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--ash-dim)}
+  .info-valor{font-size:14.5px;line-height:1.5;color:var(--rice);white-space:pre-line;overflow-wrap:anywhere}
+  .info-acao{margin-top:2px;font-size:12.5px;font-weight:700;color:var(--dashi)}
+  .fine{margin:26px auto 0;max-width:46ch;color:var(--ash-dim);font-size:12.5px;line-height:1.6}
+
+  .assinatura{
+    margin:30px auto 0;padding-top:22px;max-width:240px;border-top:1px solid var(--line);
+    display:flex;flex-direction:column;align-items:center;gap:6px;
+  }
+  .assinatura span{font-size:10.5px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--ash-dim)}
+  .assinatura img{width:150px;height:auto}
+  .assinatura-insta{
+    display:inline-flex;align-items:center;gap:6px;margin-top:2px;
+    font-size:12.5px;font-weight:700;color:var(--ash);text-decoration:none;
+  }
+  .assinatura-insta svg{width:16px;height:16px;flex:0 0 auto}
+  .assinatura .assinatura-insta span{font-size:12.5px;font-weight:700;letter-spacing:0;text-transform:none;color:inherit}
+  .assinatura-insta:hover{color:var(--dashi)}
+  .tranca-marca{
+    display:flex;align-items:center;justify-content:center;gap:10px;
+    margin:22px 0 0;padding-top:18px;border-top:1px solid var(--line);
+    font-size:10.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--ash-dim);
+  }
+  .tranca-marca img{width:118px;height:auto}
+
+  /* ---------- ampliar foto ---------- */
+  .lightbox{
+    position:fixed;inset:0;z-index:90;display:grid;place-items:center;padding:20px;
+    background:rgba(30,27,24,.9);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+  }
+  .lb-card{
+    width:min(440px,100%);overflow:hidden;border-radius:20px;background:var(--ink-2);text-align:center;
+    box-shadow:0 24px 60px rgba(0,0,0,.5);animation:pop .28s cubic-bezier(.2,.8,.3,1) both;
+  }
+  .lb-card img{width:100%;aspect-ratio:4/3;object-fit:cover}
+  .lb-texto{padding:18px 22px 22px}
+  .lb-card h3{font-family:var(--display);font-weight:600;font-size:26px;text-transform:uppercase;margin:0 0 6px;text-wrap:balance}
+  .lb-card p{margin:0;color:var(--ash);font-size:14.5px;line-height:1.6}
+  .lb-price{display:block;margin-top:12px;font-weight:700;font-size:19px;color:var(--beni)}
+  .lb-close{
+    display:block;margin:16px auto 0;background:none;border:1px solid var(--line);color:var(--ash);
+    font:inherit;font-size:13px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
+    padding:9px 18px;border-radius:999px;cursor:pointer;
+  }
+  .lb-close:hover{color:var(--rice);border-color:var(--ash)}
+  @keyframes pop{from{opacity:0;transform:scale(.94) translateY(10px)}to{opacity:1;transform:none}}
+
+  /* ================= PAINEL DO ADMINISTRADOR ================= */
+  .admin{
+    position:fixed;inset:0;z-index:100;background:var(--ink);overflow-y:auto;
+    padding-top:env(safe-area-inset-top, 0px);padding-bottom:env(safe-area-inset-bottom, 0px);
+  }
+  .tranca{min-height:100%;display:grid;place-items:center;padding:28px 20px}
+  .tranca-cartao{
+    width:100%;max-width:420px;border:1px solid var(--line);border-radius:18px;background:var(--ink-2);
+    padding:28px 24px;box-shadow:0 14px 40px rgba(45,42,38,.12);
+  }
+  .tranca-cartao h2{font-family:var(--display);font-weight:600;font-size:24px;text-transform:uppercase;margin:0 0 6px}
+  .tranca-cartao > p{margin:0 0 20px;color:var(--ash);font-size:14.5px;line-height:1.6}
+  .tranca-erro{color:var(--beni-lt);font-size:14px;margin:0 0 14px}
+  .tranca-nota{margin:18px 0 0;color:var(--ash-dim);font-size:13px;line-height:1.6}
+  .tranca-nota button{background:none;border:0;padding:0;font:inherit;font-size:13px;color:var(--dashi);text-decoration:underline;cursor:pointer}
+
+  .admin-bar{
+    position:sticky;top:0;z-index:5;background:rgba(244,237,227,.95);
+    backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--line);
+  }
+  .admin-bar-in{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding-block:12px}
+  .admin-bar h2{font-family:var(--display);font-weight:600;font-size:18px;letter-spacing:.06em;margin:0;flex:1;min-width:150px}
+  .admin-in{padding-block:26px 70px}
+
+  .aviso{
+    border:1px solid rgba(11,93,53,.3);background:rgba(11,93,53,.06);
+    border-radius:12px;padding:14px 16px;margin-bottom:24px;color:var(--dashi);font-size:14px;line-height:1.6;
+  }
+  .aviso.ruim{border-color:rgba(200,16,46,.35);background:rgba(200,16,46,.06);color:var(--beni-lt)}
+
+  .bloco{border:1px solid var(--line);border-radius:16px;padding:20px;margin-bottom:18px;background:var(--ink-2)}
+  .bloco > h3{font-family:var(--display);font-weight:600;font-size:19px;text-transform:uppercase;margin:0 0 4px;letter-spacing:.03em}
+  .bloco > .dica{margin:0 0 18px;color:var(--ash);font-size:13.5px}
+
+  .campos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+  .campo{display:flex;flex-direction:column;gap:6px;min-width:0}
+  .campo.largo{grid-column:1 / -1}
+  .campo label{font-size:12px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--ash)}
+  .campo input,.campo textarea,.campo select{
+    font:inherit;font-size:15px;color:var(--rice);background:#fff;
+    border:1px solid var(--line);border-radius:10px;padding:11px 13px;width:100%;
+  }
+  .campo textarea{min-height:76px;resize:vertical;line-height:1.5}
+  .campo input:focus,.campo textarea:focus,.campo select:focus{border-color:var(--dashi);outline:none}
+  .campo .ajuda{font-size:12px;color:var(--ash-dim)}
+
+  .linha-item{display:flex;align-items:center;gap:14px;padding:12px 4px;border-top:1px solid var(--line)}
+  .linha-item:first-of-type{border-top:0}
+  .mini{
+    width:52px;height:52px;border-radius:10px;object-fit:cover;flex:0 0 auto;
+    background:var(--ink-3);box-shadow:0 0 0 1px var(--line);
+  }
+  .mini.vazia{display:grid;place-items:center;color:var(--ash-dim)}
+  .mini.vazia svg{width:24px;height:24px}
+  .mini.inteira{object-fit:contain;background:transparent;box-shadow:none}
+  .linha-corpo{flex:1;min-width:0}
+  .linha-nome{display:block;font-weight:700;font-size:15.5px}
+  .linha-sub{display:block;color:var(--ash);font-size:13px;margin-top:2px}
+  .linha-acoes{display:flex;gap:6px;flex:0 0 auto;flex-wrap:wrap;justify-content:flex-end}
+
+  .bt{
+    font:inherit;font-size:13px;font-weight:700;background:#fff;border:1px solid var(--line);color:var(--rice);
+    border-radius:9px;padding:8px 12px;cursor:pointer;white-space:nowrap;
+  }
+  .bt:hover{border-color:var(--dashi);color:var(--dashi)}
+  .bt.mini-bt{padding:7px 10px;font-size:12px}
+  .bt.perigo:hover{border-color:var(--beni);color:var(--beni)}
+  .bt.forte{background:var(--beni);border-color:var(--beni);color:#fff}
+  .bt.forte:hover{background:var(--beni-lt);border-color:var(--beni-lt);color:#fff}
+  .bt.forte[disabled]{opacity:.45;cursor:default;background:var(--ink-3);border-color:var(--line);color:var(--ash)}
+  .bt.ok{border-color:rgba(11,93,53,.45);color:var(--dashi)}
+  .bt[disabled]{opacity:.45;cursor:default}
+
+  .grupo-secao{margin-bottom:22px}
+  .grupo-secao > h4{
+    font-family:var(--display);font-weight:600;font-size:16px;letter-spacing:.06em;
+    text-transform:uppercase;color:var(--beni);margin:0 0 6px;
+  }
+  .foto-edit{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .foto-edit .mini{width:96px;height:72px}
+  .foto-edit input[type=file]{display:none}
+
+  .qr-area{display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap}
+  .qr-caixa{background:#fff;padding:12px;border-radius:12px;line-height:0;border:1px solid var(--line)}
+  .qr-caixa canvas,.qr-caixa img{display:block}
+  .qr-lado{flex:1;min-width:220px}
+  .link-publico{
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;color:var(--dashi);
+    word-break:break-all;background:#fff;border:1px solid var(--line);border-radius:9px;padding:10px 12px;margin:0 0 12px;
+  }
+
+  .carregando{padding-block:64px;text-align:center;color:var(--ash);font-size:15px}
+  .toast{
+    position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom, 0px));translate:-50% 0;z-index:200;
+    max-width:min(460px, calc(100% - 32px));
+    background:var(--rice);color:var(--ink);border-left:4px solid var(--dashi);
+    padding:12px 18px;border-radius:12px;font-size:14.5px;line-height:1.5;box-shadow:0 14px 40px rgba(45,42,38,.35);
+  }
+  .toast.ruim{border-left-color:var(--beni)}
+
+  @media (max-width:860px){
+    .specials{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .quadros{grid-template-columns:1fr}
+  }
+  @media (max-width:720px){
+    .carta,.dishes,.drinks{grid-template-columns:1fr;gap:0}
+    .carta:not(.com-colunas) > .prato:nth-child(2),.dish:nth-child(2),.drink:nth-child(2){border-top:1px dashed var(--line)}
+    /* destaques viram uma fileira que desliza para o lado */
+    .specials{
+      display:flex;overflow-x:auto;scroll-snap-type:x mandatory;gap:14px;
+      margin-inline:-20px;padding:4px 20px 14px;scrollbar-width:none;
+    }
+    .specials::-webkit-scrollbar{display:none}
+    .special{flex:0 0 76%;scroll-snap-align:center}
+    .historia{grid-template-columns:1fr;padding:18px;gap:18px}
+    .bar-in{flex-wrap:wrap;gap:8px}
+    .btn-dono{order:2;margin-left:auto;padding:6px 11px;font-size:11px}
+    .tabs{order:3;margin-left:0;width:100%;
+      -webkit-mask-image:linear-gradient(90deg,#000 88%,transparent);
+      mask-image:linear-gradient(90deg,#000 88%,transparent)}
+    .capa{border-radius:12px}
+    .campos{grid-template-columns:1fr}
+    .infos,.infos-2{grid-template-columns:1fr;max-width:360px}
+    .linha-item{flex-wrap:wrap}
+    .linha-acoes{width:100%;justify-content:flex-start}
+  }
+  @media (max-width:480px){
+    /* duas colunas de preço: o cabeçalho já diz que é real, o R$ sai para dar espaço ao nome */
+    .com-colunas .pr small{display:none}
+    .com-colunas .pr,.carta-cab span{width:62px}
+    .com-colunas .precos,.carta-cab{gap:6px}
+    .carta-cab span{font-size:9.5px;letter-spacing:.05em}
+    .com-colunas .prato{gap:10px}
+    .mini-foto{width:50px;height:50px;border-radius:10px}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *{animation-duration:.01ms!important;transition-duration:.01ms!important}
+    .special:hover,.cta:hover{transform:none}
+  }
+</style>
+</head>
+<body>
+<div class="fita" aria-hidden="true"></div>
+<header class="bar">
+  <div class="wrap bar-in">
+    <a class="bar-mark" href="#topo">
+      <img src="img/marca.png" alt="" width="34" height="34">
+      <b id="marca-nome">Casa do Alemão</b>
+    </a>
+    <nav class="tabs" id="tabs" aria-label="Seções do cardápio"></nav>
+    <button class="btn-dono" id="abrir-admin" type="button">Área do dono</button>
+  </div>
+</header>
+
+<main id="topo">
+  <div class="hero">
+    <div class="hero-foto"><img src="img/fachada.webp" alt="" width="1000" height="622"></div>
+    <div class="wrap hero-in">
+      <img class="placa" src="img/placa.webp" alt="Casa do Alemão, desde 1945, Produtos Kern" width="780" height="540">
+      <h1 class="sr-only" id="hero-nome">Casa do Alemão</h1>
+      <p class="desde">Receitas de família desde 1945</p>
+      <p class="lede" id="hero-chamada"></p>
+      <div class="cta-row" id="hero-botoes"></div>
+    </div>
+  </div>
+
+  <div class="wrap" id="secoes"></div>
+
+  <div class="wrap">
+    <div class="historia" id="historia" hidden>
+      <img src="img/historia.webp" alt="A loja da Casa do Alemão em Petrópolis, em foto antiga" width="760" height="473" loading="lazy">
+      <div>
+        <p class="eyebrow">Nossa história</p>
+        <h2>Desde 1945</h2>
+        <p id="historia-texto"></p>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <img class="placa" src="img/placa.webp" alt="" width="780" height="540" loading="lazy">
+    <p class="foot-name" id="foot-nome">Casa do Alemão</p>
+    <p class="foot-sub">Sanduíches, salsicharia, cafés e doces · Produtos Kern</p>
+    <div class="foot-links" id="contato"></div>
+    <p class="fine">Valores em real. Imagens ilustrativas. Cardápio sujeito a alteração de itens e preços. Se beber, não dirija.</p>
+    <div class="assinatura">
+      <span>Cardápio digital por</span>
+      <img src="img/cardapio-a-mesa.webp" alt="Cardápio à Mesa" width="150" height="74" loading="lazy">
+      <a class="assinatura-insta" id="assinatura-insta" target="_blank" rel="noopener" hidden></a>
+    </div>
+  </div>
+</footer>
+
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<div class="lightbox" id="lb" role="dialog" aria-modal="true" aria-label="Foto do prato" hidden>
+  <div class="lb-card">
+    <img id="lb-img" src="" alt="">
+    <div class="lb-texto">
+      <h3 id="lb-name"></h3>
+      <p id="lb-desc"></p>
+      <span class="lb-price" id="lb-price"></span>
+      <button class="lb-close" id="lb-close" type="button">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<div class="admin" id="admin" role="dialog" aria-modal="true" aria-label="Administração do cardápio" hidden>
+  <div class="tranca" id="tranca" hidden>
+    <div class="tranca-cartao">
+      <h2>Área do dono</h2>
+      <p>Entre com o e-mail e a senha que você recebeu.</p>
+      <div class="campos">
+        <div class="campo largo"><label for="tr-email">E-mail</label><input type="email" id="tr-email" autocomplete="username" inputmode="email"></div>
+        <div class="campo largo"><label for="tr-senha">Senha</label><input type="password" id="tr-senha" autocomplete="current-password"></div>
+      </div>
+      <p class="tranca-erro" id="tranca-erro" hidden></p>
+      <div class="linha-acoes" style="justify-content:flex-start;margin-top:18px">
+        <button class="bt forte" id="tr-entrar" type="button">Entrar</button>
+        <button class="bt" id="tr-voltar" type="button">Voltar ao cardápio</button>
+      </div>
+      <p class="tranca-nota"><button type="button" id="tr-esqueci">Esqueci a senha</button></p>
+      <p class="tranca-marca">Sistema <img src="img/cardapio-a-mesa.webp" alt="Cardápio à Mesa" width="118" height="58"></p>
+    </div>
+  </div>
+
+  <div id="admin-conteudo" hidden>
+  <div class="admin-bar">
+    <div class="wrap admin-bar-in">
+      <h2>ADMINISTRAR CARDÁPIO</h2>
+      <span class="bt ok" id="estado-edicao" hidden>alterações não publicadas</span>
+      <button class="bt forte" id="publicar" type="button" disabled>Publicar</button>
+      <button class="bt" id="descartar" type="button" hidden>Descartar</button>
+      <button class="bt" id="fechar-admin" type="button">Fechar</button>
+      <button class="bt" id="sair" type="button">Sair</button>
+    </div>
+  </div>
+  <div class="wrap admin-in" id="admin-corpo"></div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="config.js?v=1"></script>
+<script src="app.js?v=1"></script>
+<script src="mesa.js?v=1"></script>
+</body>
+</html>

@@ -1,0 +1,133 @@
+rules_version = '2';
+
+// Regras do projeto do Cardápio à Mesa.
+//
+// Onde colar: console.firebase.google.com > Firestore Database > aba "Regras"
+// > apagar tudo > colar este arquivo > Publicar.
+//
+// Modelo: cada restaurante tem o cardápio público (qualquer um lê) e uma
+// lista privada de e-mails que podem editar. Os e-mails ficam num documento
+// separado justamente para nunca aparecerem para quem só está vendo o cardápio.
+//
+//   restaurantes/{slug}                 cardápio: textos e seções  -> leitura pública
+//   restaurantes/{slug}/itens/{id}      um prato por documento     -> leitura pública
+//   restaurantes/{slug}/mesas/{id}      uma mesa por documento     -> leitura pública
+//   restaurantes/{slug}/comandas/{id}   a conta aberta de uma mesa -> ver abaixo
+//   restaurantes/{slug}/privado/acesso  { donos: [e-mails] }       -> só dono e admin
+//
+// Pedido na mesa: o cliente só consegue abrir comanda e pedir quando AS DUAS
+// chaves estão ligadas — `pedidoNaMesa`, que o dono liga no painel, e
+// `pedidoAte`, o prazo que só o administrador do Cardápio à Mesa muda. Passou
+// a data, o servidor recusa: não adianta o que estiver aberto no celular.
+//
+// Nenhum dado pessoal mora neste arquivo: o administrador é identificado pelo
+// UID, um código opaco que o Firebase gera, e os e-mails dos donos ficam no banco.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function logado(){
+      return request.auth != null;
+    }
+
+    // Administrador do Cardápio à Mesa: cria restaurantes e define os donos.
+    function admin(){
+      return logado() && request.auth.uid in ['ziGoA3CYfjSFGbVzU8KzPtK4ND03'];
+    }
+
+    function donoDe(slug){
+      return logado()
+        && request.auth.token.email != null
+        && exists(/databases/$(database)/documents/restaurantes/$(slug)/privado/acesso)
+        && request.auth.token.email.lower() in get(/databases/$(database)/documents/restaurantes/$(slug)/privado/acesso).data.donos;
+    }
+
+    function manda(slug){
+      return admin() || donoDe(slug);
+    }
+
+    // As duas chaves do pedido na mesa. Sem data de liberação, está fechado.
+    function pedidoLiberado(slug){
+      return get(/databases/$(database)/documents/restaurantes/$(slug)).data.get('pedidoNaMesa', false) == true
+        && get(/databases/$(database)/documents/restaurantes/$(slug)).data.get('pedidoAte', request.time) > request.time;
+    }
+
+    function comandaViva(slug, comanda){
+      return !exists(/databases/$(database)/documents/restaurantes/$(slug)/comandas/$(comanda))
+        || get(/databases/$(database)/documents/restaurantes/$(slug)/comandas/$(comanda)).data.estado != 'fechada';
+    }
+
+    function soMudou(campos){
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(campos);
+    }
+
+    match /restaurantes/{slug} {
+      allow read: if true;
+      allow create, delete: if admin();
+      // O dono edita o cardápio e liga/desliga o pedido na mesa. O prazo de
+      // liberação é do administrador: o dono não consegue esticar o próprio teste.
+      allow update: if admin()
+        || (donoDe(slug) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['pedidoAte']));
+
+      match /itens/{item} {
+        allow read: if true;
+        allow write: if manda(slug);
+      }
+
+      // Mesas: leitura pública (o celular precisa saber se a mesa do QR existe).
+      // O cliente só pode apontar qual é a comanda aberta da mesa.
+      match /mesas/{mesa} {
+        allow read: if true;
+        allow write: if manda(slug);
+        allow update: if pedidoLiberado(slug) && soMudou(['comandaAberta']);
+      }
+
+      // Comanda da mesa. Enquanto está aberta, quem está na mesa consegue ler;
+      // depois de fechada, só o dono. Quem fecha é sempre o dono.
+      match /comandas/{comanda} {
+        allow read: if manda(slug) || resource.data.estado != 'fechada';
+        allow create: if pedidoLiberado(slug)
+          && request.resource.data.keys().hasOnly(['mesa', 'estado', 'abertaEm'])
+          && request.resource.data.estado == 'aberta'
+          && request.resource.data.mesa is string
+          && exists(/databases/$(database)/documents/restaurantes/$(slug)/mesas/$(request.resource.data.mesa));
+        allow update: if manda(slug)
+          || (pedidoLiberado(slug) && soMudou(['estado'])
+              && resource.data.estado == 'aberta' && request.resource.data.estado == 'conta');
+        allow delete: if manda(slug);
+
+        // Cada pedido da mesa é uma rodada. O cliente cria; quem muda o estado,
+        // tira item ou recusa é o dono. O cliente só PEDE para tirar.
+        match /rodadas/{rodada} {
+          allow read: if manda(slug) || comandaViva(slug, comanda);
+          allow create: if pedidoLiberado(slug)
+            && comandaViva(slug, comanda)
+            && request.resource.data.keys().hasOnly(['quem', 'itens', 'estado', 'pedirTirar', 'criadaEm'])
+            && request.resource.data.estado == 'novo'
+            && request.resource.data.itens is list
+            && request.resource.data.itens.size() > 0
+            && request.resource.data.itens.size() <= 40
+            && request.resource.data.pedirTirar.size() == 0
+            && request.resource.data.quem is string
+            && request.resource.data.quem.size() <= 40;
+          allow update: if manda(slug)
+            || (pedidoLiberado(slug) && soMudou(['pedirTirar'])
+                && request.resource.data.pedirTirar.size() <= resource.data.itens.size());
+          allow delete: if manda(slug);
+        }
+      }
+
+      // Lista de quem pode editar. O dono consegue ler (é assim que o painel
+      // descobre que ele tem acesso), mas só o administrador muda a lista.
+      match /privado/{doc} {
+        allow read: if manda(slug);
+        allow write: if admin();
+      }
+    }
+
+    // Todo o resto é fechado.
+    match /{caminho=**} {
+      allow read, write: if false;
+    }
+  }
+}
