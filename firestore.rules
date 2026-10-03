@@ -32,7 +32,7 @@ service cloud.firestore {
 
     // Administrador do Cardápio à Mesa: cria restaurantes e define os donos.
     function admin(){
-      return logado() && request.auth.uid in ['0Djg8nD5AfXaFCfE66nhk3xPHay1'];
+      return logado() && request.auth.uid in ['isFTGyaTOkOBUxs6iSDaifa9eDj1'];
     }
 
     function donoDe(slug){

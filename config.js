@@ -11,7 +11,7 @@ window.CARDAPIO_CONFIG = {
   // UID do administrador do Cardápio à Mesa. Não é segredo: é o mesmo código
   // que está nas regras do Firestore, e serve só para o painel mostrar a
   // liberação do pedido na mesa. Quem decide de verdade são as regras.
-  admin: "0Djg8nD5AfXaFCfE66nhk3xPHay1",
+  admin: "isFTGyaTOkOBUxs6iSDaifa9eDj1",
   firebase: {
     apiKey: "AIzaSyCO4jXgsyp990Q-2JvI8Aw-zBn9le7oPL0",
     authDomain: "cardapio-a-mesa.firebaseapp.com",
