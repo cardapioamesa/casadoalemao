@@ -133,7 +133,7 @@ ITENS = [
     ("por-mignon",    "porcoes", "Filé mignon", "", "88,40", "", "", None),
     ("por-batata",    "porcoes", "Batata frita", "", "14,20", "", "Cone", None),
     ("por-portuguesa","porcoes", "Batata portuguesa", "", "23,50", "", "", None),
-    ("por-salsicha-q","porcoes", "Salsicha com creme de queijo", "", "40,50", "", "", None),
+    ("por-salsicha-q","porcoes", "Salsicha com creme de queijo", "", "40,50", "", "", "p-salsicha-queijo.jpg"),
     ("por-pao",       "porcoes", "Pão", "", "7,80", "", "", None),
     ("por-ovos",      "porcoes", "Ovos mexidos simples", "", "13,80", "", "", None),
     ("por-ovos-esp",  "porcoes", "Ovos mexidos especiais", "Com bacon, cebola, tomate e salsa.", "15,70", "", "", None),
