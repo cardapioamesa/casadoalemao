@@ -11,17 +11,28 @@ rules_version = '2';
 //
 //   restaurantes/{slug}                 cardápio: textos e seções  -> leitura pública
 //   restaurantes/{slug}/itens/{id}      um prato por documento     -> leitura pública
-//   restaurantes/{slug}/mesas/{id}      uma mesa por documento     -> leitura pública
-//   restaurantes/{slug}/comandas/{id}   a conta aberta de uma mesa -> ver abaixo
 //   restaurantes/{slug}/privado/acesso  { donos: [e-mails] }       -> só dono e admin
 //
+// Restaurante de uma loja só (Aikissoba): mesas e comandas ficam direto no
+// restaurante.
+//   restaurantes/{slug}/mesas/{id}      uma mesa por documento     -> leitura pública
+//   restaurantes/{slug}/comandas/{id}   a conta aberta de uma mesa -> ver abaixo
+//
+// Rede com várias lojas (Casa do Alemão): o cardápio é um só, e cada loja tem
+// as suas mesas, comandas, chave de pedido, esgotados do dia e gerentes. O
+// gerente de uma loja não lê nem mexe em nada das outras.
+//   restaurantes/{slug}/lojas/{loja}                  { nome, endereco, ..., pedidoNaMesa, esgotados }
+//   restaurantes/{slug}/lojas/{loja}/privado/acesso   { gerentes: [e-mails] }
+//   restaurantes/{slug}/lojas/{loja}/mesas/{id}
+//   restaurantes/{slug}/lojas/{loja}/comandas/{id}/rodadas/{id}
+//
 // Pedido na mesa: o cliente só consegue abrir comanda e pedir quando AS DUAS
-// chaves estão ligadas — `pedidoNaMesa`, que o dono liga no painel, e
-// `pedidoAte`, o prazo que só o administrador do Cardápio à Mesa muda. Passou
-// a data, o servidor recusa: não adianta o que estiver aberto no celular.
+// chaves estão ligadas — `pedidoNaMesa`, que o dono (ou o gerente da loja)
+// liga no painel, e `pedidoAte`, o prazo do restaurante que só o administrador
+// do Cardápio à Mesa muda. Passou a data, o servidor recusa.
 //
 // Nenhum dado pessoal mora neste arquivo: o administrador é identificado pelo
-// UID, um código opaco que o Firebase gera, e os e-mails dos donos ficam no banco.
+// UID, um código opaco que o Firebase gera, e os e-mails ficam no banco.
 
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -35,21 +46,46 @@ service cloud.firestore {
       return logado() && request.auth.uid in ['isFTGyaTOkOBUxs6iSDaifa9eDj1'];
     }
 
+    function email(){
+      return request.auth.token.email.lower();
+    }
+
     function donoDe(slug){
       return logado()
         && request.auth.token.email != null
         && exists(/databases/$(database)/documents/restaurantes/$(slug)/privado/acesso)
-        && request.auth.token.email.lower() in get(/databases/$(database)/documents/restaurantes/$(slug)/privado/acesso).data.donos;
+        && email() in get(/databases/$(database)/documents/restaurantes/$(slug)/privado/acesso).data.donos;
     }
 
     function manda(slug){
       return admin() || donoDe(slug);
     }
 
+    function gerenteDe(slug, loja){
+      return logado()
+        && request.auth.token.email != null
+        && exists(/databases/$(database)/documents/restaurantes/$(slug)/lojas/$(loja)/privado/acesso)
+        && email() in get(/databases/$(database)/documents/restaurantes/$(slug)/lojas/$(loja)/privado/acesso).data.gerentes;
+    }
+
+    // quem cuida da loja: o escritório (dono), o administrador ou o gerente dela
+    function cuida(slug, loja){
+      return manda(slug) || gerenteDe(slug, loja);
+    }
+
+    function prazoVale(slug){
+      return get(/databases/$(database)/documents/restaurantes/$(slug)).data.get('pedidoAte', request.time) > request.time;
+    }
+
     // As duas chaves do pedido na mesa. Sem data de liberação, está fechado.
     function pedidoLiberado(slug){
       return get(/databases/$(database)/documents/restaurantes/$(slug)).data.get('pedidoNaMesa', false) == true
-        && get(/databases/$(database)/documents/restaurantes/$(slug)).data.get('pedidoAte', request.time) > request.time;
+        && prazoVale(slug);
+    }
+
+    function pedidoLiberadoNaLoja(slug, loja){
+      return get(/databases/$(database)/documents/restaurantes/$(slug)/lojas/$(loja)).data.get('pedidoNaMesa', false) == true
+        && prazoVale(slug);
     }
 
     function comandaViva(slug, comanda){
@@ -57,8 +93,25 @@ service cloud.firestore {
         || get(/databases/$(database)/documents/restaurantes/$(slug)/comandas/$(comanda)).data.estado != 'fechada';
     }
 
+    function comandaVivaNaLoja(slug, loja, comanda){
+      return !exists(/databases/$(database)/documents/restaurantes/$(slug)/lojas/$(loja)/comandas/$(comanda))
+        || get(/databases/$(database)/documents/restaurantes/$(slug)/lojas/$(loja)/comandas/$(comanda)).data.estado != 'fechada';
+    }
+
     function soMudou(campos){
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(campos);
+    }
+
+    // Formato de uma rodada nova, enviada pelo celular do cliente.
+    function rodadaValida(){
+      return request.resource.data.keys().hasOnly(['quem', 'itens', 'estado', 'pedirTirar', 'criadaEm'])
+        && request.resource.data.estado == 'novo'
+        && request.resource.data.itens is list
+        && request.resource.data.itens.size() > 0
+        && request.resource.data.itens.size() <= 40
+        && request.resource.data.pedirTirar.size() == 0
+        && request.resource.data.quem is string
+        && request.resource.data.quem.size() <= 40;
     }
 
     match /restaurantes/{slug} {
@@ -73,6 +126,15 @@ service cloud.firestore {
         allow read: if true;
         allow write: if manda(slug);
       }
+
+      // Lista de quem pode editar. O dono consegue ler (é assim que o painel
+      // descobre que ele tem acesso), mas só o administrador muda a lista.
+      match /privado/{doc} {
+        allow read: if manda(slug);
+        allow write: if admin();
+      }
+
+      // ---------- restaurante de uma loja só ----------
 
       // Mesas: leitura pública (o celular precisa saber se a mesa do QR existe).
       // O cliente só pode apontar qual é a comanda aberta da mesa.
@@ -100,16 +162,7 @@ service cloud.firestore {
         // tira item ou recusa é o dono. O cliente só PEDE para tirar.
         match /rodadas/{rodada} {
           allow read: if manda(slug) || comandaViva(slug, comanda);
-          allow create: if pedidoLiberado(slug)
-            && comandaViva(slug, comanda)
-            && request.resource.data.keys().hasOnly(['quem', 'itens', 'estado', 'pedirTirar', 'criadaEm'])
-            && request.resource.data.estado == 'novo'
-            && request.resource.data.itens is list
-            && request.resource.data.itens.size() > 0
-            && request.resource.data.itens.size() <= 40
-            && request.resource.data.pedirTirar.size() == 0
-            && request.resource.data.quem is string
-            && request.resource.data.quem.size() <= 40;
+          allow create: if pedidoLiberado(slug) && comandaViva(slug, comanda) && rodadaValida();
           allow update: if manda(slug)
             || (pedidoLiberado(slug) && soMudou(['pedirTirar'])
                 && request.resource.data.pedirTirar.size() <= resource.data.itens.size());
@@ -117,11 +170,49 @@ service cloud.firestore {
         }
       }
 
-      // Lista de quem pode editar. O dono consegue ler (é assim que o painel
-      // descobre que ele tem acesso), mas só o administrador muda a lista.
-      match /privado/{doc} {
-        allow read: if manda(slug);
-        allow write: if admin();
+      // ---------- rede com várias lojas ----------
+
+      match /lojas/{loja} {
+        allow read: if true;
+        allow create, delete: if manda(slug);
+        // O gerente só liga o pedido na mesa e marca o que esgotou na loja dele.
+        allow update: if manda(slug)
+          || (gerenteDe(slug, loja) && soMudou(['pedidoNaMesa', 'esgotados']));
+
+        // Gerentes da loja: o escritório define; o gerente só lê (é assim que
+        // o painel descobre de qual loja ele é).
+        match /privado/{doc} {
+          allow read: if cuida(slug, loja);
+          allow write: if manda(slug);
+        }
+
+        match /mesas/{mesa} {
+          allow read: if true;
+          allow write: if cuida(slug, loja);
+          allow update: if pedidoLiberadoNaLoja(slug, loja) && soMudou(['comandaAberta']);
+        }
+
+        match /comandas/{comanda} {
+          allow read: if cuida(slug, loja) || resource.data.estado != 'fechada';
+          allow create: if pedidoLiberadoNaLoja(slug, loja)
+            && request.resource.data.keys().hasOnly(['mesa', 'estado', 'abertaEm'])
+            && request.resource.data.estado == 'aberta'
+            && request.resource.data.mesa is string
+            && exists(/databases/$(database)/documents/restaurantes/$(slug)/lojas/$(loja)/mesas/$(request.resource.data.mesa));
+          allow update: if cuida(slug, loja)
+            || (pedidoLiberadoNaLoja(slug, loja) && soMudou(['estado'])
+                && resource.data.estado == 'aberta' && request.resource.data.estado == 'conta');
+          allow delete: if cuida(slug, loja);
+
+          match /rodadas/{rodada} {
+            allow read: if cuida(slug, loja) || comandaVivaNaLoja(slug, loja, comanda);
+            allow create: if pedidoLiberadoNaLoja(slug, loja) && comandaVivaNaLoja(slug, loja, comanda) && rodadaValida();
+            allow update: if cuida(slug, loja)
+              || (pedidoLiberadoNaLoja(slug, loja) && soMudou(['pedirTirar'])
+                  && request.resource.data.pedirTirar.size() <= resource.data.itens.size());
+            allow delete: if cuida(slug, loja);
+          }
+        }
       }
     }
 

@@ -15,7 +15,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Libre+Franklin:wght@400;500;600;700&family=Playfair+Display:ital,wght@1,500&display=swap">
-<link rel="stylesheet" href="mesa.css?v=1">
+<link rel="stylesheet" href="mesa.css?v=2">
 <style>
   /* Os nomes das variáveis vêm do modelo do Cardápio à Mesa (o primeiro cliente
      era escuro): --ink é o fundo, --rice o texto, --beni a cor da marca e
@@ -283,6 +283,38 @@
   .historia p{margin:0;color:var(--ash);font-size:15.5px;line-height:1.7;white-space:pre-line}
   .historia .eyebrow{color:var(--beni);margin-bottom:6px}
 
+  /* ---------- lojas da rede ---------- */
+  .loja-atual{
+    display:inline-flex;align-items:center;gap:8px;margin:20px 0 0;
+    background:var(--dashi);color:#fff;border-radius:999px;padding:7px 14px 7px 11px;font-size:14px;
+  }
+  .loja-atual svg{width:17px;height:17px}
+  .loja-atual + .desde{margin-top:14px}
+  .lojas{margin-top:56px}
+  .lojas-titulo{
+    margin:0 0 18px;font-family:var(--display);font-weight:600;text-transform:uppercase;
+    font-size:clamp(28px,6vw,40px);line-height:1.05;
+  }
+  .lojas-lista{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+  .loja{background:var(--ink-2);border:1px solid var(--line);border-radius:16px;padding:16px 16px 14px}
+  .loja.aqui{border-color:var(--dashi);box-shadow:0 0 0 1px var(--dashi)}
+  .loja h3{margin:0 0 4px;font-family:var(--display);font-weight:600;font-size:18px;text-transform:uppercase;letter-spacing:.02em}
+  .loja-selo{
+    display:inline-block;vertical-align:middle;margin-left:4px;font-family:var(--body);font-size:10px;font-weight:700;
+    letter-spacing:.08em;color:#fff;background:var(--dashi);border-radius:999px;padding:2px 8px;
+  }
+  .loja p{margin:0;color:var(--ash);font-size:14px;line-height:1.5}
+  .loja-acoes{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+  .loja-acoes a{
+    display:inline-flex;align-items:center;gap:5px;text-decoration:none;
+    font-size:13px;font-weight:600;color:var(--rice);
+    border:1px solid var(--line);border-radius:999px;padding:5px 11px;background:#fff;
+  }
+  .loja-acoes a:hover{border-color:var(--dashi);color:var(--dashi)}
+  .loja-acoes svg{width:15px;height:15px}
+  .loja-acoes .loja-ifood{background:#EA1D2C;border-color:#EA1D2C;color:#fff}
+  .loja-acoes .loja-ifood:hover{color:#fff;opacity:.9}
+
   /* ---------- rodapé: fundo escuro, as variáveis mudam só aqui ---------- */
   footer{
     --ink-2:#36322D;--rice:#F4EDE3;--ash:#CDC2B5;--ash-dim:#A39888;--line:#4D463F;--dashi:#E9C579;
@@ -480,6 +512,7 @@
   @media (max-width:860px){
     .specials{grid-template-columns:repeat(2,minmax(0,1fr))}
     .quadros{grid-template-columns:1fr}
+    .lojas-lista{grid-template-columns:repeat(2,minmax(0,1fr))}
   }
   @media (max-width:720px){
     .carta,.dishes,.drinks{grid-template-columns:1fr;gap:0}
@@ -492,6 +525,7 @@
     .specials::-webkit-scrollbar{display:none}
     .special{flex:0 0 76%;scroll-snap-align:center}
     .historia{grid-template-columns:1fr;padding:18px;gap:18px}
+    .lojas-lista{grid-template-columns:1fr}
     .bar-in{flex-wrap:wrap;gap:8px}
     .btn-dono{order:2;margin-left:auto;padding:6px 11px;font-size:11px}
     .tabs{order:3;margin-left:0;width:100%;
@@ -537,6 +571,7 @@
     <div class="wrap hero-in">
       <img class="placa" src="img/placa.webp" alt="Casa do Alemão, desde 1945, Produtos Kern" width="780" height="540">
       <h1 class="sr-only" id="hero-nome">Casa do Alemão</h1>
+      <p class="loja-atual" id="loja-atual" hidden></p>
       <p class="desde">Receitas de família desde 1945</p>
       <p class="lede" id="hero-chamada"></p>
       <div class="cta-row" id="hero-botoes"></div>
@@ -554,6 +589,7 @@
         <p id="historia-texto"></p>
       </div>
     </div>
+    <div class="lojas" id="lojas" hidden></div>
   </div>
 </main>
 
@@ -624,8 +660,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="config.js?v=3"></script>
-<script src="app.js?v=1"></script>
-<script src="mesa.js?v=1"></script>
+<script src="config.js?v=4"></script>
+<script src="app.js?v=2"></script>
+<script src="mesa.js?v=2"></script>
 </body>
 </html>

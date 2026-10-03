@@ -82,6 +82,7 @@
   const ICONE = {
     mapa:    svg('<path d="M12 21s-6.5-6.1-6.5-11.2a6.5 6.5 0 0 1 13 0C18.5 14.9 12 21 12 21z"/><circle cx="12" cy="9.8" r="2.4"/>'),
     relogio: svg('<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>'),
+    telefone: svg('<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a1 1 0 0 1-1 1A16 16 0 0 1 4 5a1 1 0 0 1 1-1z"/>'),
     // casa em enxaimel, o símbolo da marca: aparece onde o item não tem foto
     casa:    svg('<path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v10h14V10"/><path d="M5 14h14M9 10v10M15 10v10M9 14l6-4M9 10l6 4"/>')
   };
@@ -111,6 +112,13 @@
 
   /* ---------------- cardápio do cliente ---------------- */
   const secaoDe = it => (dados && dados.secoes.find(s => s.id === it.secao)) || {};
+
+  // Lojas da rede (vazio num restaurante de uma loja só). A loja do cliente
+  // vem do QR (?loja=itaipava): o que esgotou nela aparece como esgotado.
+  let lojas = [];
+  const LOJA = (new URLSearchParams(location.search).get("loja") || "").trim();
+  const lojaCliente = () => lojas.find(l => l.id === LOJA) || null;
+  const fora = it => !!it.esgotado || !!(lojaCliente() && (lojaCliente().esgotados || []).indexOf(it.id) >= 0);
   // Duas colunas de preço só quando a seção tem os dois rótulos.
   const colunasDe = secao => (Array.isArray(secao.colunas) && secao.colunas.length === 2) ? secao.colunas : null;
 
@@ -118,7 +126,7 @@
   const preco = p => p ? `<small>R$</small>${esc(p)}` : `consulte`;
 
   function selo(it){
-    if (it.esgotado) return `<span class="selo-esgotado">Esgotado hoje</span>`;
+    if (fora(it)) return `<span class="selo-esgotado">Esgotado hoje</span>`;
     // etiqueta de chamada ("Famoso da casa", "Novidade") em vermelho; medida
     // e porção ("fatia", "500 ml") ficam discretas
     const forte = /famos|novidade|destaque|mais pedido|chef/i.test(it.tag || "");
@@ -129,7 +137,7 @@
     const precos = colunas
       ? `<span class="precos"><span class="pr${it.preco ? "" : " consulte"}">${preco(it.preco)}</span><span class="pr${it.preco2 ? "" : " consulte"}">${it.preco2 ? preco(it.preco2) : "—"}</span></span>`
       : `<span class="precos um"><span class="pr${it.preco ? "" : " consulte"}">${preco(it.preco)}</span></span>`;
-    return `<button class="prato${it.foto ? " tem-foto" : ""}${it.esgotado ? " fora" : ""}" type="button" data-item="${esc(it.id)}">
+    return `<button class="prato${it.foto ? " tem-foto" : ""}${fora(it) ? " fora" : ""}" type="button" data-item="${esc(it.id)}">
       <span class="prato-corpo">
         <span class="prato-nome">${esc(it.nome)}</span>
         ${it.desc ? `<span class="prato-desc">${esc(it.desc)}</span>` : ""}
@@ -141,7 +149,7 @@
   }
 
   function linhaPrato(it){
-    return `<button class="dish${it.esgotado ? " fora" : ""}" type="button" data-item="${esc(it.id)}">
+    return `<button class="dish${fora(it) ? " fora" : ""}" type="button" data-item="${esc(it.id)}">
       ${it.foto ? `<span class="thumb"><img src="${esc(it.foto)}" alt="${esc(it.nome)}" loading="lazy"></span>` : ""}
       <span class="dish-body">
         <span class="dish-name">${esc(it.nome)}</span>
@@ -156,7 +164,7 @@
     const foto = it.foto
       ? `<span class="card-foto"><img src="${esc(it.foto)}" alt="${esc(it.nome)}" loading="lazy"></span>`
       : `<span class="card-foto vazia" aria-hidden="true">${ICONE.casa}</span>`;
-    return `<button class="special${it.esgotado ? " fora" : ""}" type="button" data-item="${esc(it.id)}">
+    return `<button class="special${fora(it) ? " fora" : ""}" type="button" data-item="${esc(it.id)}">
       ${foto}
       <span class="card-corpo">
         <span class="dish-name">${esc(it.nome)}</span>
@@ -173,10 +181,10 @@
     const garrafa = it.foto
       ? `<span class="garrafa"><img src="${esc(it.foto)}" alt="${esc(it.nome)}" loading="lazy"></span>`
       : (comFoto ? `<span class="garrafa vazia" aria-hidden="true"></span>` : "");
-    return `<div class="drink${it.esgotado ? " fora" : ""}" data-item="${esc(it.id)}">
+    return `<div class="drink${fora(it) ? " fora" : ""}" data-item="${esc(it.id)}">
       ${garrafa}
       <span class="drink-name">${esc(it.nome)}${it.tag ? ` <small class="drink-tag">${esc(it.tag)}</small>` : ""}</span>
-      ${it.esgotado ? `<span class="selo-esgotado selo-bebida">Esgotado hoje</span>` : ""}
+      ${fora(it) ? `<span class="selo-esgotado selo-bebida">Esgotado hoje</span>` : ""}
       <span class="dots"></span>
       <span class="drink-price">${preco(it.preco)}</span>
     </div>`;
@@ -255,9 +263,40 @@
         <span class="info-valor">${esc(z.horario)}</span></div>`);
     if (cartoes.length) contato += `<div class="infos infos-${cartoes.length}">${cartoes.join("")}</div>`;
     document.getElementById("contato").innerHTML = contato;
+    renderLojas();
 
     ligarScrollspy();
     if (window.PEDIDOS) window.PEDIDOS.aposCliente();
+  }
+
+  // "Nossas lojas" no fim da página, e o nome da loja no topo quando o
+  // cliente chegou pelo QR de uma delas.
+  function renderLojas(){
+    const caixa = document.getElementById("lojas");
+    const aqui = document.getElementById("loja-atual");
+    const atual = lojaCliente();
+    if (aqui){
+      aqui.hidden = !atual;
+      aqui.innerHTML = atual ? `${ICONE.mapa}<span>Você está na loja <strong>${esc(atual.nome)}</strong></span>` : "";
+    }
+    if (!caixa) return;
+    caixa.hidden = !lojas.length;
+    if (!lojas.length){ caixa.innerHTML = ""; return; }
+    // a loja do cliente vem primeiro
+    const ordem = atual ? [atual].concat(lojas.filter(l => l !== atual)) : lojas;
+    caixa.innerHTML = `<h2 class="lojas-titulo">Nossas lojas</h2>
+      <div class="lojas-lista">${ordem.map(l => {
+        const tel = String(l.telefone || "").replace(/\D/g, "");
+        return `<div class="loja${l === atual ? " aqui" : ""}">
+          <h3>${esc(l.nome)}${l === atual ? ` <span class="loja-selo">você está aqui</span>` : ""}</h3>
+          ${l.endereco ? `<p>${esc(l.endereco)}</p>` : ""}
+          <div class="loja-acoes">
+            ${l.endereco ? `<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(((dados && dados.site.nome) || "") + " " + l.endereco)}" target="_blank" rel="noopener">${ICONE.mapa}Mapa</a>` : ""}
+            ${tel ? `<a href="tel:+55${esc(tel)}">${ICONE.telefone}${esc(l.telefone)}</a>` : ""}
+            ${/^https:\/\/(www\.)?ifood\.com\.br\//.test(l.ifood || "") ? `<a href="${esc(l.ifood)}" target="_blank" rel="noopener" class="loja-ifood">iFood</a>` : ""}
+          </div>
+        </div>`;
+      }).join("")}</div>`;
   }
 
   /* ---------------- ampliar foto ---------------- */
@@ -269,7 +308,7 @@
     if (!it || !it.foto) return;
     document.getElementById("lb-img").src = it.foto;
     document.getElementById("lb-img").alt = it.nome;
-    document.getElementById("lb-name").textContent = it.nome + (it.esgotado ? " — esgotado hoje" : "");
+    document.getElementById("lb-name").textContent = it.nome + (fora(it) ? " — esgotado hoje" : "");
     document.getElementById("lb-desc").textContent = it.desc || "";
     const colunas = colunasDe(secaoDe(it));
     document.getElementById("lb-price").textContent = colunas && it.preco2
@@ -329,10 +368,25 @@
   // Ponte para o pedido na mesa (mesa.js). O módulo é opcional: sem ele, o
   // cardápio funciona exatamente como antes.
   window.CARDAPIO = {
-    cfg: CFG, db, auth, refRest, esc, avisar,
+    cfg: CFG, db, auth, refRest, esc, avisar, fora,
     dados: () => dados,
+    lojas: () => lojas,
+    papel: () => papel,
     ehDono: () => ehDono
   };
+
+  // As lojas chegam do banco; enquanto não chegam, o painel espera (é preciso
+  // saber as lojas para descobrir de qual delas um gerente é).
+  let lojasProntas;
+  const lojasPronto = new Promise(ok => { lojasProntas = ok; });
+  refRest.collection("lojas").orderBy("ordem").onSnapshot(qs => {
+    lojas = qs.docs.map(d => Object.assign({ id: d.id }, d.data()));
+    lojasProntas();
+    if (dados) renderCliente();
+    // o painel do escritório mostra a lista de lojas: redesenha, menos no meio
+    // de uma edição de item
+    if (!painel.hidden && !conteudoAdmin.hidden && papel && papel.rede && !editando) renderAdmin();
+  }, () => lojasProntas());
 
   const painel = document.getElementById("admin");
   const tranca = document.getElementById("tranca");
@@ -385,7 +439,8 @@
 
   /* ---------------- painel do dono ---------------- */
 
-  let ehDono = false;      // o servidor deixou ler a lista de acesso: é dono
+  let ehDono = false;      // pode abrir o painel (dono da rede ou gerente de loja)
+  let papel = null;        // { rede: true } escritório/dono  ·  { loja: "id" } gerente de uma loja
   let publicando = false;
   let editando = null;     // id do item aberto no formulário, ou "novo"
   let fotoPendente = null;
@@ -395,13 +450,27 @@
     sujo = !!(dados && original) && estavel(dados) !== estavel(original);
     seloEdicao.hidden = !sujo;
     btDescartar.hidden = !sujo;
-    btPublicar.disabled = !(sujo && ehDono) || publicando;
+    btPublicar.disabled = !(sujo && ehDono && papel && papel.rede) || publicando;
   }
 
-  async function conferirDono(){
-    // Só consegue ler privado/acesso quem as regras deixam editar.
-    try { await refAcesso.get(); return true; }
-    catch (e) { return false; }
+  // Quem é esta conta: só consegue ler um privado/acesso quem as regras
+  // deixam mexer. O do restaurante é do dono (escritório); o de cada loja é
+  // dos gerentes dela.
+  async function conferirPapel(){
+    papel = null;
+    try { await refAcesso.get(); papel = { rede: true }; }
+    catch (e) {
+      await lojasPronto;
+      for (const l of lojas){
+        try {
+          await refRest.collection("lojas").doc(l.id).collection("privado").doc("acesso").get();
+          papel = { loja: l.id };
+          break;
+        } catch (e2) { /* não é desta loja */ }
+      }
+    }
+    ehDono = !!papel;
+    return ehDono;
   }
 
   async function abrirAdmin(){
@@ -409,8 +478,7 @@
     document.body.style.overflow = "hidden";
     await authPronto;
     if (auth.currentUser){
-      ehDono = await conferirDono();
-      if (ehDono){ liberar(); return; }
+      if (await conferirPapel()){ liberar(); return; }
       mostrarTranca("Esta conta não administra este cardápio. Entre com outra.");
       return;
     }
@@ -460,8 +528,7 @@
     bt.disabled = true; bt.textContent = "Entrando…";
     try {
       await auth.signInWithEmailAndPassword(email, senha);
-      ehDono = await conferirDono();
-      if (!ehDono){
+      if (!(await conferirPapel())){
         await auth.signOut();
         mostrarTranca("Esta conta não administra este cardápio.");
         return;
@@ -495,13 +562,13 @@
   document.getElementById("sair").addEventListener("click", async () => {
     if (sujo && !window.confirm("Há alterações não publicadas. Sair mesmo assim?")) return;
     await auth.signOut();
-    ehDono = false;
+    ehDono = false; papel = null;
     if (original){ dados = clonar(original); marcarSujo(); renderCliente(); }
     fecharAdmin();
     avisar("Você saiu da área do dono.");
   });
 
-  auth.onAuthStateChanged(u => { if (!u) ehDono = false; });
+  auth.onAuthStateChanged(u => { if (!u){ ehDono = false; papel = null; } });
 
   /* -------- formulário e listas do painel -------- */
   function campo(rotulo, chave, valor, opc){
@@ -556,11 +623,119 @@
     </div>`;
   }
 
+  function blocoConta(){
+    const usuario = auth.currentUser;
+    return `<div class="bloco">
+      <h3>Sua conta</h3>
+      <p class="dica">Você entrou como <strong>${esc(usuario ? usuario.email : "")}</strong>.</p>
+      <div class="campos">
+        <div class="campo"><label>Nova senha</label><input type="password" id="nova-senha-1" autocomplete="new-password"></div>
+        <div class="campo"><label>Repita a nova senha</label><input type="password" id="nova-senha-2" autocomplete="new-password"></div>
+      </div>
+      <div class="linha-acoes" style="justify-content:flex-start;margin-top:14px">
+        <button class="bt" type="button" data-acao="trocar-senha">Trocar senha</button>
+      </div>
+      <p class="dica" id="aviso-senha" style="margin:12px 0 0"></p>
+    </div>`;
+
+  }
+
+  // Lojas da rede: o escritório cadastra, edita e define os gerentes de cada
+  // uma. Grava na hora (não passa pelo botão Publicar).
+  function blocoLojas(){
+    const linhas = lojas.map((l, i) => `<div class="linha-item">
+        <span class="linha-corpo">
+          <span class="linha-nome">${esc(l.nome || l.id)}</span>
+          <span class="linha-sub">${esc([l.endereco, l.telefone].filter(Boolean).join(" · ") || "sem endereço")}${l.ifood ? " · iFood" : ""}${l.pedidoNaMesa ? " · pedido na mesa ligado" : ""}</span>
+        </span>
+        <span class="linha-acoes">
+          <button class="bt mini-bt" type="button" data-acao="loja-subir" data-id="${esc(l.id)}" ${i === 0 ? "disabled" : ""}>↑</button>
+          <button class="bt mini-bt" type="button" data-acao="loja-descer" data-id="${esc(l.id)}" ${i === lojas.length - 1 ? "disabled" : ""}>↓</button>
+          <button class="bt mini-bt" type="button" data-acao="loja-editar" data-id="${esc(l.id)}">Editar</button>
+          <button class="bt mini-bt" type="button" data-acao="loja-gerentes" data-id="${esc(l.id)}">Gerentes</button>
+          <button class="bt mini-bt perigo" type="button" data-acao="loja-excluir" data-id="${esc(l.id)}">Excluir</button>
+        </span>
+      </div>`).join("");
+    return `<div class="bloco">
+      <h3>Lojas</h3>
+      <p class="dica">${lojas.length
+        ? "Cada loja tem as suas mesas, os seus pedidos, o que esgotou e o seu caixa. Os gerentes entram com o próprio e-mail e só veem a loja deles. As mudanças aqui valem na hora."
+        : "Restaurante com uma loja só. Se abrir outras, cadastre cada uma aqui: cada loja passa a ter as suas mesas, pedidos e caixa."}</p>
+      ${linhas}
+      <div class="linha-acoes" style="justify-content:flex-start;margin-top:14px">
+        <button class="bt" type="button" data-acao="loja-nova">+ Nova loja</button>
+      </div>
+    </div>`;
+  }
+
+  async function acaoLoja(acao, id){
+    const ref = x => refRest.collection("lojas").doc(x);
+    const l = lojas.find(x => x.id === id);
+    try {
+      if (acao === "loja-nova" || acao === "loja-editar"){
+        const nome = window.prompt("Nome da loja (aparece para o cliente):", l ? l.nome || "" : "");
+        if (nome === null || !nome.trim()) return;
+        const endereco = window.prompt("Endereço:", l ? l.endereco || "" : "");
+        if (endereco === null) return;
+        const telefone = window.prompt("Telefone (com DDD):", l ? l.telefone || "" : "");
+        if (telefone === null) return;
+        const ifood = window.prompt("Link do iFood desta loja (pode deixar vazio):", l ? l.ifood || "" : "");
+        if (ifood === null) return;
+        const campos = { nome: nome.trim(), endereco: endereco.trim(), telefone: telefone.trim(), ifood: ifood.trim() };
+        if (l){ await ref(l.id).update(campos); avisar("Loja atualizada."); return; }
+        const novoId = nome.trim().toLowerCase().normalize("NFD").replace(ACENTOS, "")
+          .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 30) || ("loja" + Date.now().toString(36));
+        if (lojas.some(x => x.id === novoId)){ avisar("Já existe uma loja com esse nome.", true); return; }
+        await ref(novoId).set(Object.assign(campos, { ordem: lojas.length, pedidoNaMesa: false, esgotados: [] }));
+        avisar("Loja criada. Agora cadastre os gerentes e as mesas dela.");
+        return;
+      }
+      if (!l) return;
+      if (acao === "loja-gerentes"){
+        let atuais = [];
+        try { const s = await ref(l.id).collection("privado").doc("acesso").get(); atuais = (s.exists && s.data().gerentes) || []; }
+        catch (e) { /* ainda não tem lista */ }
+        const r = window.prompt(`E-mails dos gerentes da loja ${l.nome}, separados por vírgula.\nCada um precisa de um login criado no Firebase (Authentication).`, atuais.join(", "));
+        if (r === null) return;
+        const gerentes = [...new Set(r.split(/[\s,;]+/).map(x => x.trim().toLowerCase()).filter(x => x.includes("@")))];
+        await ref(l.id).collection("privado").doc("acesso").set({ gerentes });
+        avisar(gerentes.length ? `Gerentes da loja ${l.nome}: ${gerentes.join(", ")}` : `A loja ${l.nome} ficou sem gerente.`);
+        return;
+      }
+      if (acao === "loja-subir" || acao === "loja-descer"){
+        const i = lojas.indexOf(l), j = i + (acao === "loja-subir" ? -1 : 1);
+        if (j < 0 || j >= lojas.length) return;
+        const lote = db.batch();
+        lote.update(ref(l.id), { ordem: j });
+        lote.update(ref(lojas[j].id), { ordem: i });
+        await lote.commit();
+        return;
+      }
+      if (acao === "loja-excluir"){
+        if (!window.confirm(`Excluir a loja ${l.nome}? Os QR Codes das mesas dela param de funcionar.`)) return;
+        await ref(l.id).delete();
+        avisar("Loja excluída.");
+      }
+    } catch (err) {
+      console.error("Lojas:", err);
+      avisar(err && err.code === "permission-denied" ? "Esta conta não pode mexer nas lojas." : "Não deu para salvar agora. Tente de novo.", true);
+    }
+  }
+
   function renderAdmin(){
     if (!dados){ corpoAdmin.innerHTML = `<p class="carregando">Carregando o cardápio…</p>`; return; }
     const z = dados.site;
-    const usuario = auth.currentUser;
     let html = "";
+
+    // Gerente de loja: só o painel da loja dele (pedidos, mesas, esgotados,
+    // caixa) e a conta. O cardápio é do escritório.
+    if (!papel || !papel.rede){
+      btPublicar.hidden = true; btDescartar.hidden = true; seloEdicao.hidden = true;
+      corpoAdmin.innerHTML = blocoConta();
+      if (window.PEDIDOS) window.PEDIDOS.aposAdmin(corpoAdmin);
+      return;
+    }
+    btPublicar.hidden = false;
 
     if (editando){
       const base = editando === "novo"
@@ -597,7 +772,7 @@
           <span class="linha-acoes">
             <button class="bt mini-bt" type="button" data-acao="subir" data-id="${esc(it.id)}" ${idx === 0 ? "disabled" : ""}>↑</button>
             <button class="bt mini-bt" type="button" data-acao="descer" data-id="${esc(it.id)}" ${idx === itens.length-1 ? "disabled" : ""}>↓</button>
-            <button class="bt mini-bt" type="button" data-acao="esgotar" data-id="${esc(it.id)}">${it.esgotado ? "Voltou" : "Esgotou"}</button>
+            <button class="bt mini-bt" type="button" data-acao="esgotar" data-id="${esc(it.id)}">${it.esgotado ? "Voltou" : (lojas.length ? "Esgotou em todas" : "Esgotou")}</button>
             <button class="bt mini-bt" type="button" data-acao="editar" data-id="${esc(it.id)}">Editar</button>
             <button class="bt mini-bt perigo" type="button" data-acao="excluir" data-id="${esc(it.id)}">Excluir</button>
           </span>
@@ -628,6 +803,8 @@
         <button class="bt" type="button" data-acao="secao-nova">+ Nova seção</button>
       </div></div>`;
 
+    html += blocoLojas();
+
     // ----- dados da casa -----
     html += `<div class="bloco">
       <h3>Dados da casa</h3>
@@ -643,19 +820,7 @@
       </div>
     </div>`;
 
-    // ----- conta -----
-    html += `<div class="bloco">
-      <h3>Sua conta</h3>
-      <p class="dica">Você entrou como <strong>${esc(usuario ? usuario.email : "")}</strong>.</p>
-      <div class="campos">
-        <div class="campo"><label>Nova senha</label><input type="password" id="nova-senha-1" autocomplete="new-password"></div>
-        <div class="campo"><label>Repita a nova senha</label><input type="password" id="nova-senha-2" autocomplete="new-password"></div>
-      </div>
-      <div class="linha-acoes" style="justify-content:flex-start;margin-top:14px">
-        <button class="bt" type="button" data-acao="trocar-senha">Trocar senha</button>
-      </div>
-      <p class="dica" id="aviso-senha" style="margin:12px 0 0"></p>
-    </div>`;
+    html += blocoConta();
 
     // ----- link e QR -----
     html += `<div class="bloco">
@@ -760,6 +925,7 @@
       }
       return;
     }
+    if (acao && acao.indexOf("loja-") === 0){ acaoLoja(acao, id); return; }
     if (acao === "secao-editar"){ editarSecao(id); return; }
     if (acao === "secao-nova"){ editarSecao(null); return; }
 
@@ -911,7 +1077,7 @@
 
   /* -------- publicar: grava só o que mudou -------- */
   btPublicar.addEventListener("click", async () => {
-    if (!auth.currentUser || !ehDono){ mostrarTranca("Entre de novo para publicar."); return; }
+    if (!auth.currentUser || !ehDono || !papel || !papel.rede){ mostrarTranca("Entre de novo para publicar."); return; }
     publicando = true;
     btPublicar.disabled = true;
     btPublicar.textContent = "Publicando…";

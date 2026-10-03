@@ -10,11 +10,17 @@
  * As duas são conferidas de novo pelas regras do Firestore, no servidor. O que
  * esta página faz é só mostrar a tela certa.
  *
- * Banco:
- *   restaurantes/{slug}                            { pedidoNaMesa, pedidoAte }
- *   restaurantes/{slug}/mesas/{id}                 { nome, ordem, comandaAberta }
- *   restaurantes/{slug}/comandas/{id}              { mesa, estado, abertaEm, fechadaEm, total }
- *   restaurantes/{slug}/comandas/{id}/rodadas/{id} { quem, itens[], estado, pedirTirar[], criadaEm }
+ * Banco (a "unidade" é o próprio restaurante, ou uma loja da rede):
+ *   restaurantes/{slug}                            { pedidoAte, pedidoNaMesa* }
+ *   restaurantes/{slug}/lojas/{loja}               { nome, ..., pedidoNaMesa, esgotados[] }
+ *   {unidade}/mesas/{id}                           { nome, ordem, comandaAberta }
+ *   {unidade}/comandas/{id}                        { mesa, estado, abertaEm, fechadaEm, total }
+ *   {unidade}/comandas/{id}/rodadas/{id}           { quem, itens[], estado, pedirTirar[], criadaEm }
+ * * pedidoNaMesa fica no restaurante quando ele tem uma loja só.
+ *
+ * Rede com várias lojas: o QR da mesa leva a loja (…/?loja=itaipava&mesa=3)
+ * e o pedido cai só no painel daquela loja. O gerente vê só a loja dele; o
+ * escritório escolhe a loja no painel.
  */
 (function(){
   "use strict";
@@ -25,8 +31,18 @@
   const CFG = API.cfg || {};
   const db = API.db, refRest = API.refRest, auth = API.auth, esc = API.esc;
   const FV = firebase.firestore.FieldValue;
-  const refMesas = refRest.collection("mesas");
-  const refComandas = refRest.collection("comandas");
+  const unidade = loja => loja ? refRest.collection("lojas").doc(loja) : refRest;
+
+  // lado do cliente: a loja e a mesa vêm do QR
+  const PARAMS = new URLSearchParams(location.search);
+  const LOJA = (PARAMS.get("loja") || "").trim();
+  const refUnidadeC = unidade(LOJA);
+  const refMesasC = refUnidadeC.collection("mesas");
+  const refComandasC = refUnidadeC.collection("comandas");
+
+  // lado do painel: a loja muda quando o escritório escolhe outra
+  let lojaP = null;
+  let refUnidadeP = refRest, refMesasP = refRest.collection("mesas"), refComandasP = refRest.collection("comandas");
 
   /* ---------------- utilidades ---------------- */
   const num = v => {
@@ -71,10 +87,12 @@
   const lembrar = k => { try { return localStorage.getItem(k) || ""; } catch (e) { return ""; } };
 
   /* ---------------- estado ---------------- */
-  let conf = { ligado: false, ate: null };
-  let mesas = [];
+  let conf = { ligado: false, ate: null };   // ligado: da unidade do cliente
+  let ligadoP = false;                 // chave da unidade aberta no painel
+  let esgotadosP = [];                 // esgotados do dia na loja do painel
+  let mesas = [];                      // mesas da unidade do painel
   let mesaDoc = null;                  // documento da mesa deste QR
-  const MESA = (new URLSearchParams(location.search).get("mesa") || "").trim();
+  const MESA = (PARAMS.get("mesa") || "").trim();
 
   let comanda = null;                  // comanda aberta da mesa (lado do cliente)
   let rodadas = [];                    // rodadas dela
@@ -97,7 +115,8 @@
   let caixa = null;                    // relatório calculado do dia
   let caixaCarregando = false;
 
-  const liberado = () => !!(conf.ligado && conf.ate && conf.ate.toMillis && conf.ate.toMillis() > Date.now());
+  const prazoVale = () => !!(conf.ate && conf.ate.toMillis && conf.ate.toMillis() > Date.now());
+  const liberado = () => conf.ligado && prazoVale();
   const diasRestantes = () => conf.ate && conf.ate.toMillis
     ? Math.ceil((conf.ate.toMillis() - Date.now()) / 86400000) : 0;
   const clienteAtivo = () => !!MESA && liberado() && !!mesaDoc;
@@ -120,12 +139,12 @@
     idComanda = alvo; comanda = null; rodadas = [];
     if (!alvo){ pintarCliente(); return; }
 
-    pararComanda = refComandas.doc(alvo).onSnapshot(s => {
+    pararComanda = refComandasC.doc(alvo).onSnapshot(s => {
       comanda = s.exists ? Object.assign({ id: s.id }, s.data()) : null;
       pintarCliente();
     }, () => {});
 
-    pararRodadas = refComandas.doc(alvo).collection("rodadas").orderBy("criadaEm").onSnapshot(qs => {
+    pararRodadas = refComandasC.doc(alvo).collection("rodadas").orderBy("criadaEm").onSnapshot(qs => {
       rodadas = qs.docs.map(d => Object.assign({ id: d.id }, d.data()));
       pintarCliente();
     }, () => {});
@@ -221,7 +240,7 @@
     if (!cartaz) return "";
     return `<div class="mesa-caixa" role="dialog" aria-modal="true" aria-label="Cartaz da mesa">
       <button class="mesa-x" type="button" data-mesa-acao="fechar-folha" aria-label="Fechar">&times;</button>
-      <h3>Cartaz da mesa ${esc(cartaz.nome)}</h3>
+      <h3>Cartaz da mesa ${esc(cartaz.nome)}${lojaP ? " · " + esc(nomeDaLoja(lojaP)) : ""}</h3>
       <p class="mesa-desc">Imprima e deixe na mesa. Quem apontar a câmera cai no cardápio já nesta mesa.</p>
       <img class="mesa-cartaz" src="${esc(cartaz.url)}" alt="Cartaz com o QR Code da mesa ${esc(cartaz.nome)}">
       <div class="mesa-botoes">
@@ -253,7 +272,7 @@
       <h3>${esc(it.nome)}</h3>
       ${it.desc ? `<p class="mesa-desc">${esc(it.desc)}</p>` : ""}
       ${escolha}
-      ${it.esgotado
+      ${API.fora(it)
         ? `<p class="mesa-aviso">Esgotado hoje. Escolha outro prato.</p>`
         : !preco
         ? `<p class="mesa-aviso">Este item está sem preço no cardápio. Peça a quem estiver servindo.</p>`
@@ -360,7 +379,7 @@
     if (acao === "enviar"){ enviarPedido(); return; }
     if (acao === "pedir-conta"){
       try {
-        await refComandas.doc(comanda.id).update({ estado: "conta" });
+        await refComandasC.doc(comanda.id).update({ estado: "conta" });
         API.avisar("Pedido de conta enviado. Já estão indo até você.");
       } catch (err) { API.avisar("Não deu para pedir a conta agora.", true); }
       return;
@@ -368,7 +387,7 @@
     if (acao === "pedir-tirar"){
       const idx = Number(bt.dataset.idx);
       try {
-        await refComandas.doc(comanda.id).collection("rodadas").doc(bt.dataset.rodada)
+        await refComandasC.doc(comanda.id).collection("rodadas").doc(bt.dataset.rodada)
           .update({ pedirTirar: FV.arrayUnion(idx) });
         API.avisar("Pedido enviado ao dono. Ele confirma a retirada.");
       } catch (err) { API.avisar("Não deu para pedir agora. Chame alguém da casa.", true); }
@@ -391,21 +410,21 @@
     const itens = carrinho.map(i => ({ nome: i.nome, preco: i.preco, qtd: i.qtd, obs: i.obs || "" }));
     try {
       await db.runTransaction(async tx => {
-        const mref = refMesas.doc(MESA);
+        const mref = refMesasC.doc(MESA);
         const msnap = await tx.get(mref);
         if (!msnap.exists) throw new Error("mesa");
         let cid = msnap.data().comandaAberta || null;
         if (cid){
-          const c = await tx.get(refComandas.doc(cid));
+          const c = await tx.get(refComandasC.doc(cid));
           if (!c.exists || c.data().estado === "fechada") cid = null;
         }
         if (!cid){
-          const nova = refComandas.doc();
+          const nova = refComandasC.doc();
           tx.set(nova, { mesa: MESA, estado: "aberta", abertaEm: FV.serverTimestamp() });
           tx.update(mref, { comandaAberta: nova.id });
           cid = nova.id;
         }
-        tx.set(refComandas.doc(cid).collection("rodadas").doc(), {
+        tx.set(refComandasC.doc(cid).collection("rodadas").doc(), {
           quem: meuNome, itens: itens, estado: "novo", pedirTirar: [], criadaEm: FV.serverTimestamp()
         });
       });
@@ -426,7 +445,7 @@
   /* ---------------- painel do dono ---------------- */
   function ligarPainel(){
     if (pararDono.length || !API.ehDono()) return;
-    pararDono.push(refComandas.where("estado", "!=", "fechada").onSnapshot(qs => {
+    pararDono.push(refComandasP.where("estado", "!=", "fechada").onSnapshot(qs => {
       comandasDono = qs.docs.map(d => Object.assign({ id: d.id }, d.data()))
         .sort((a, b) => (a.abertaEm && a.abertaEm.toMillis ? a.abertaEm.toMillis() : 0) -
                         (b.abertaEm && b.abertaEm.toMillis ? b.abertaEm.toMillis() : 0));
@@ -450,7 +469,7 @@
     });
     comandasDono.forEach(c => {
       if (ouvintesRodada[c.id]) return;
-      ouvintesRodada[c.id] = refComandas.doc(c.id).collection("rodadas").orderBy("criadaEm").onSnapshot(qs => {
+      ouvintesRodada[c.id] = refComandasP.doc(c.id).collection("rodadas").orderBy("criadaEm").onSnapshot(qs => {
         rodadasDono[c.id] = qs.docs.map(d => Object.assign({ id: d.id }, d.data()));
         let novidade = false;
         rodadasDono[c.id].forEach(r => {
@@ -471,13 +490,99 @@
     corpoPainel = document.createElement("div");
     corpoPainel.id = "mesa-painel";
     container.insertBefore(corpoPainel, container.firstChild);
+    // qual loja o painel mostra: a do gerente; para o escritório, a última
+    // escolhida neste aparelho (ou a primeira da lista)
+    const lojas = API.lojas();
+    const papel = API.papel() || {};
+    let alvo = null;
+    if (lojas.length){
+      if (papel.loja) alvo = papel.loja;
+      else {
+        const lembrada = lembrar("mesa-loja");
+        alvo = lojas.some(l => l.id === lembrada) ? lembrada : lojas[0].id;
+      }
+    }
+    if (alvo !== lojaP || !pararUnidade.length) trocarLoja(alvo);
+    else { ligarPainel(); pintarPainel(); }
+  }
+
+  // Troca a unidade do painel: desliga os ouvintes da loja anterior e liga os
+  // da nova. Sem lojas, a unidade é o próprio restaurante.
+  let pararUnidade = [];
+  function trocarLoja(id){
+    desligarPainel();
+    pararUnidade.forEach(f => { try { f(); } catch (e) {} });
+    pararUnidade = [];
+    lojaP = id || null;
+    refUnidadeP = unidade(lojaP);
+    refMesasP = refUnidadeP.collection("mesas");
+    refComandasP = refUnidadeP.collection("comandas");
+    mesas = []; caixa = null;
+    if (lojaP){
+      pararUnidade.push(refUnidadeP.onSnapshot(s => {
+        const d = (s && s.data()) || {};
+        ligadoP = !!d.pedidoNaMesa;
+        esgotadosP = Array.isArray(d.esgotados) ? d.esgotados : [];
+        pintarPainel();
+      }, () => {}));
+    }
+    pararUnidade.push(refMesasP.orderBy("ordem").onSnapshot(qs => {
+      mesas = qs.docs.map(d => Object.assign({ id: d.id }, d.data()));
+      pintarPainel();
+    }, () => {}));
     ligarPainel();
     pintarPainel();
   }
 
+  const nomeDaLoja = id => {
+    const l = API.lojas().find(x => x.id === id);
+    return (l && l.nome) || id || "";
+  };
+
   function pintarPainel(){
     if (!corpoPainel || !corpoPainel.isConnected || !API.ehDono()) return;
-    corpoPainel.innerHTML = blocoChave() + blocoPedidos() + blocoMesas() + blocoCaixa();
+    corpoPainel.innerHTML = blocoLoja() + blocoChave() + blocoEsgotados() + blocoPedidos() + blocoMesas() + blocoCaixa();
+  }
+
+  // Escolha da loja (só para o escritório; o gerente vê o nome da loja dele).
+  function blocoLoja(){
+    const lojas = API.lojas();
+    if (!lojas.length || !lojaP) return "";
+    const papel = API.papel() || {};
+    if (papel.loja) return `<div class="aviso">Você está no painel da loja <strong>${esc(nomeDaLoja(lojaP))}</strong>.</div>`;
+    return `<div class="bloco mesa-loja-bloco">
+      <h3>Loja</h3>
+      <p class="dica">Pedidos, mesas, esgotados e caixa abaixo são desta loja. O cardápio, mais embaixo, vale para todas.</p>
+      <select class="mesa-campo" id="mesa-loja" aria-label="Loja">
+        ${lojas.map(l => `<option value="${esc(l.id)}" ${l.id === lojaP ? "selected" : ""}>${esc(l.nome || l.id)}</option>`).join("")}
+      </select>
+    </div>`;
+  }
+
+  // O que acabou hoje NESTA loja. Grava na hora, sem precisar publicar.
+  function blocoEsgotados(){
+    if (!lojaP) return "";
+    const d = API.dados();
+    if (!d) return "";
+    const marcados = new Set(esgotadosP);
+    const grupos = d.secoes.filter(s => s.estilo !== "quadro").map(s => {
+      const itens = d.itens.filter(i => i.secao === s.id);
+      if (!itens.length) return "";
+      const n = itens.filter(i => marcados.has(i.id)).length;
+      return `<details class="mesa-esg-grupo"${n ? " open" : ""}>
+        <summary>${esc(s.nome)}${n ? ` <span class="mesa-contador tem">${n} esgotado${n > 1 ? "s" : ""}</span>` : ""}</summary>
+        <div class="mesa-esg-lista">${itens.map(i => `<button type="button" class="mesa-esg${marcados.has(i.id) ? " fora" : ""}"
+            data-mesa-acao="dono-esgotar" data-id="${esc(i.id)}" aria-pressed="${marcados.has(i.id)}">${esc(i.nome)}${i.tag ? ` <small>${esc(i.tag)}</small>` : ""}</button>`).join("")}</div>
+      </details>`;
+    }).join("");
+    return `<div class="bloco">
+      <h3>Esgotou hoje nesta loja
+        <span class="mesa-contador${marcados.size ? " tem" : ""}">${marcados.size ? marcados.size + " esgotado" + (marcados.size > 1 ? "s" : "") : "nada esgotado"}</span>
+      </h3>
+      <p class="dica">Toque no item que acabou: ele aparece como "esgotado hoje" só para quem está nesta loja. Toque de novo quando voltar. Vale na hora, sem publicar.</p>
+      ${marcados.size ? `<div class="linha-acoes" style="justify-content:flex-start;margin-bottom:12px"><button class="bt mini-bt" type="button" data-mesa-acao="dono-esgotar-limpar">Voltou tudo</button></div>` : ""}
+      ${grupos}
+    </div>`;
   }
 
   function blocoChave(){
@@ -490,19 +595,19 @@
     else
       estado = `<p class="mesa-status">Liberado até <strong>${esc(dia(conf.ate.toDate()))}</strong> — ${dias} dia${dias === 1 ? "" : "s"} restante${dias === 1 ? "" : "s"}.</p>`;
 
-    const podeLigar = !!conf.ate && conf.ate.toMillis() > Date.now();
+    const podeLigar = prazoVale();
     const hoje = new Date();
     const emTrinta = new Date(hoje.getTime() + 30 * 86400000).toISOString().slice(0, 10);
 
     return `<div class="bloco">
-      <h3>Pedido na mesa</h3>
-      <p class="dica">Desligado, o cardápio fica igual ao de sempre: o cliente vê os pratos e não pede pelo celular.</p>
+      <h3>Pedido na mesa${lojaP ? " · " + esc(nomeDaLoja(lojaP)) : ""}</h3>
+      <p class="dica">Desligado, o cardápio fica igual ao de sempre: o cliente vê os pratos e não pede pelo celular.${lojaP ? " A chave vale só para esta loja." : ""}</p>
       <div class="mesa-chave">
-        <button class="mesa-interruptor${conf.ligado ? " ligado" : ""}" type="button" role="switch"
-          aria-checked="${conf.ligado}" data-mesa-acao="dono-chave" ${podeLigar ? "" : "disabled"}>
+        <button class="mesa-interruptor${ligadoP ? " ligado" : ""}" type="button" role="switch"
+          aria-checked="${ligadoP}" data-mesa-acao="dono-chave" ${podeLigar ? "" : "disabled"}>
           <span class="mesa-bolinha"></span>
         </button>
-        <b>${conf.ligado ? "Recebendo pedidos pela mesa" : "Pedido pela mesa desligado"}</b>
+        <b>${ligadoP ? "Recebendo pedidos pela mesa" : "Pedido pela mesa desligado"}</b>
       </div>
       ${estado}
       ${ehAdmin ? `<div class="mesa-admin">
@@ -646,11 +751,22 @@
     const cid = bt.dataset.c, rid = bt.dataset.r, mid = bt.dataset.m;
     const idx = bt.dataset.idx === undefined ? null : Number(bt.dataset.idx);
     const rodada = () => (rodadasDono[cid] || []).find(r => r.id === rid);
-    const refR = () => refComandas.doc(cid).collection("rodadas").doc(rid);
+    const refR = () => refComandasP.doc(cid).collection("rodadas").doc(rid);
 
     try {
       if (acao === "chave"){
-        await refRest.update({ pedidoNaMesa: !conf.ligado });
+        await refUnidadeP.update({ pedidoNaMesa: !ligadoP });
+        return;
+      }
+      if (acao === "esgotar"){
+        const id = bt.dataset.id;
+        const fora = esgotadosP.indexOf(id) >= 0;
+        await refUnidadeP.update({ esgotados: fora ? FV.arrayRemove(id) : FV.arrayUnion(id) });
+        return;
+      }
+      if (acao === "esgotar-limpar"){
+        if (!window.confirm("Marcar tudo como disponível de novo nesta loja?")) return;
+        await refUnidadeP.update({ esgotados: [] });
         return;
       }
       if (acao === "som"){
@@ -705,11 +821,11 @@
         if (!window.confirm("Fechar a conta desta mesa? Total: R$ " + reais(totalRodadas(rs)))) return;
         const c = comandasDono.find(x => x.id === cid);
         const lote = db.batch();
-        lote.update(refComandas.doc(cid), {
+        lote.update(refComandasP.doc(cid), {
           estado: "fechada", fechadaEm: FV.serverTimestamp(), total: totalRodadas(rs)
         });
         if (c && mesas.some(m => m.id === c.mesa && m.comandaAberta === cid))
-          lote.update(refMesas.doc(c.mesa), { comandaAberta: null });
+          lote.update(refMesasP.doc(c.mesa), { comandaAberta: null });
         await lote.commit();
         caixa = null;
         API.avisar("Conta fechada.");
@@ -721,7 +837,7 @@
         const id = n.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "").slice(0, 20);
         if (!id){ API.avisar("Use números ou letras no nome da mesa.", true); return; }
         if (mesas.some(m => m.id === id)){ API.avisar("Já existe uma mesa com esse nome.", true); return; }
-        await refMesas.doc(id).set({ nome: n, ordem: mesas.length, comandaAberta: null });
+        await refMesasP.doc(id).set({ nome: n, ordem: mesas.length, comandaAberta: null });
         API.avisar("Mesa " + n + " criada. Baixe o cartaz com o QR dela.");
         return;
       }
@@ -729,14 +845,14 @@
         const m = mesas.find(x => x.id === mid);
         const n = (window.prompt("Nome que aparece no cartaz e no painel:", m ? (m.nome || m.id) : "") || "").trim();
         if (!n) return;
-        await refMesas.doc(mid).update({ nome: n });
+        await refMesasP.doc(mid).update({ nome: n });
         return;
       }
       if (acao === "mesa-tirar"){
         const m = mesas.find(x => x.id === mid);
         if (m && m.comandaAberta){ API.avisar("Feche a conta desta mesa antes de excluir.", true); return; }
         if (!window.confirm("Excluir a mesa " + (m ? (m.nome || m.id) : mid) + "? O QR dela para de funcionar.")) return;
-        await refMesas.doc(mid).delete();
+        await refMesasP.doc(mid).delete();
         return;
       }
       if (acao === "qr"){ cartazDaMesa(mesas.find(x => x.id === mid)); return; }
@@ -754,13 +870,13 @@
     caixaCarregando = true; pintarPainel();
     try {
       const inicio = new Date(); inicio.setHours(0, 0, 0, 0);
-      const qs = await refComandas.where("fechadaEm", ">=", firebase.firestore.Timestamp.fromDate(inicio)).get();
+      const qs = await refComandasP.where("fechadaEm", ">=", firebase.firestore.Timestamp.fromDate(inicio)).get();
       const comandas = [];
       const porItem = {};
       for (const d of qs.docs){
         const c = Object.assign({ id: d.id }, d.data());
         if (c.estado !== "fechada") continue;
-        const rs = await refComandas.doc(c.id).collection("rodadas").get();
+        const rs = await refComandasP.doc(c.id).collection("rodadas").get();
         let total = 0;
         rs.docs.forEach(x => {
           const r = x.data();
@@ -796,7 +912,7 @@
     const d = API.dados() || {};
     const site = d.site || {};
     const base = (site.url || (location.origin + location.pathname)).trim().replace(/[?#].*$/, "");
-    const url = base + "?mesa=" + encodeURIComponent(m.id);
+    const url = base + (lojaP ? "?loja=" + encodeURIComponent(lojaP) + "&mesa=" : "?mesa=") + encodeURIComponent(m.id);
     if (typeof window.QRCode === "undefined"){ API.avisar("Sem internet para gerar o QR agora.", true); return; }
 
     const oculto = document.createElement("div");
@@ -818,7 +934,7 @@
       g.fillStyle = "#2D2A26";
       g.textAlign = "center";
       g.font = "600 34px Georgia, serif";
-      g.fillText((site.nome || "Cardápio").toUpperCase(), 380, 92);
+      g.fillText((site.nome || "Cardápio").toUpperCase() + (lojaP ? " · " + nomeDaLoja(lojaP).toUpperCase() : ""), 380, 92, 700);
       g.font = "700 104px Arial, sans-serif";
       g.fillText("MESA " + String(m.nome || m.id).toUpperCase(), 380, 210);
       try { g.drawImage(fonte, 120, 270, 520, 520); } catch (e) {}
@@ -840,7 +956,7 @@
   // funciona (o iPhone ignora), mas dali dá para salvar, compartilhar ou imprimir.
   function mostrarCartaz(c, m){
     const nome = String(m.nome || m.id);
-    const arquivo = "mesa-" + m.id + ".png";
+    const arquivo = (lojaP ? lojaP + "-" : "") + "mesa-" + m.id + ".png";
     // Monta o arquivo na hora, sem toBlob: assim funciona igual em todo
     // navegador e nada fica esperando um aviso que pode não vir.
     try {
@@ -903,19 +1019,36 @@
   // e aí tudo o que ele mexe já precisa existir.
   refRest.onSnapshot(s => {
     const d = (s && s.data()) || {};
-    conf = { ligado: !!d.pedidoNaMesa, ate: d.pedidoAte || null };
+    conf.ate = d.pedidoAte || null;
+    if (!LOJA) conf.ligado = !!d.pedidoNaMesa;   // restaurante de uma loja só
+    if (!lojaP) ligadoP = !!d.pedidoNaMesa;
     ouvirComanda();
     pintarCliente();
     pintarPainel();
   }, () => {});
 
-  refMesas.orderBy("ordem").onSnapshot(qs => {
-    mesas = qs.docs.map(d => Object.assign({ id: d.id }, d.data()));
-    mesaDoc = mesas.find(m => m.id === MESA) || null;
+  // A loja do QR: a chave do pedido na mesa é dela.
+  if (LOJA) refUnidadeC.onSnapshot(s => {
+    const d = (s && s.exists && s.data()) || {};
+    conf.ligado = !!d.pedidoNaMesa;
     ouvirComanda();
     pintarCliente();
-    pintarPainel();
   }, () => {});
+
+  // A mesa do QR.
+  if (MESA) refMesasC.doc(MESA).onSnapshot(s => {
+    mesaDoc = s && s.exists ? Object.assign({ id: s.id }, s.data()) : null;
+    ouvirComanda();
+    pintarCliente();
+  }, () => {});
+
+  // Escolha da loja no painel do escritório.
+  document.addEventListener("change", e => {
+    if (e.target && e.target.id === "mesa-loja"){
+      guardar("mesa-loja", e.target.value);
+      trocarLoja(e.target.value);
+    }
+  });
 
   auth.onAuthStateChanged(u => { if (!u) desligarPainel(); });
 

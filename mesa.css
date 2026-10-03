@@ -179,3 +179,20 @@ body.sem-rolagem{ overflow:hidden }
 .mesa-opcao.marcada span{ color:var(--beni) }
 .mesa-caixa h3{ text-transform:uppercase; font-weight:600; font-size:22px }
 .mesa-foto{ height:auto; aspect-ratio:4/3 }
+
+/* ---------- esgotados do dia, por loja ---------- */
+.mesa-esg-grupo{ border-top:1px solid var(--line); padding:10px 0 }
+.mesa-esg-grupo summary{
+  cursor:pointer; font-family:var(--display); font-weight:600; font-size:15px;
+  letter-spacing:.04em; text-transform:uppercase; color:var(--rice);
+}
+.mesa-esg-lista{ display:flex; flex-wrap:wrap; gap:7px; margin-top:10px }
+.mesa-esg{
+  font:inherit; font-size:13px; font-weight:600; cursor:pointer;
+  border:1px solid var(--line); background:#fff; color:var(--rice);
+  border-radius:999px; padding:7px 12px;
+}
+.mesa-esg small{ font-weight:400; color:var(--ash-dim) }
+.mesa-esg.fora{ background:var(--beni); border-color:var(--beni); color:#fff; text-decoration:line-through }
+.mesa-esg.fora small{ color:rgba(255,255,255,.8) }
+.mesa-loja-bloco select{ max-width:360px }

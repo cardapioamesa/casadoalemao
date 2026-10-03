@@ -62,6 +62,35 @@ painel.
 Fontes: fotos do cardápio impresso (02/10/2026) e o site oficial
 casadoalemao.com.br (fotos de produto, logo, fachada e história).
 
+## Lojas da rede
+
+A Casa do Alemão tem várias lojas e **um cardápio só**. Cada loja tem as suas
+mesas, pedidos, chave de pedido na mesa, o que esgotou no dia e o seu caixa.
+
+```
+restaurantes/casadoalemao/lojas/{loja}                   nome, endereço, telefone, iFood, pedidoNaMesa, esgotados
+restaurantes/casadoalemao/lojas/{loja}/privado/acesso    { gerentes: [e-mails] }
+restaurantes/casadoalemao/lojas/{loja}/mesas/{id}
+restaurantes/casadoalemao/lojas/{loja}/comandas/{id}/rodadas/{id}
+```
+
+- O QR de cada mesa leva a loja: `.../?loja=itaipava&mesa=3`. O pedido cai só no
+  painel daquela loja. O cartaz já sai com a loja certa.
+- **Escritório** (e-mails em `privado/acesso` do restaurante): edita o cardápio,
+  cadastra lojas e gerentes e escolhe a loja no painel para ver pedidos e caixa.
+- **Gerente** (e-mails em `lojas/{loja}/privado/acesso`): entra pela mesma Área do
+  dono e vê só a loja dele — pedidos, mesas, o que esgotou e caixa. Não mexe no
+  cardápio nem nas outras lojas (as regras do banco garantem).
+- "Esgotou hoje nesta loja" grava na hora e aparece só para quem abriu o QR
+  daquela loja. O "Esgotou em todas" do cardápio vale para a rede inteira.
+- Quem abre o link sem loja (Instagram, Google) vê o cardápio e a lista
+  "Nossas lojas", sem botão de pedir.
+- Sem lojas cadastradas, tudo funciona como num restaurante de uma loja só
+  (mesas e comandas direto no restaurante, como na Aikissoba).
+- O login de cada gerente é criado no console do Firebase (Authentication →
+  Users → Adicionar usuário); depois o escritório põe o e-mail em **Lojas →
+  Gerentes** no painel.
+
 ## Pedido na mesa
 
 O cliente abre o QR da mesa (`.../?mesa=3`), pede pelo celular e o pedido cai no

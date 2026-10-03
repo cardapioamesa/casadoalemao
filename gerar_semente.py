@@ -259,6 +259,24 @@ ITENS = [
     ("doc-nata",        "doces", "Pastel de nata", "", "16,80", "", "", None),
 ]
 
+# Lojas da rede, do site oficial (casadoalemao.com.br, "Lojas").
+# (id, nome, endereço, telefone, iFood)
+LOJAS = [
+    ("quitandinha", "Petrópolis · Quitandinha", "Av. Ayrton Senna, 927 · Quitandinha · Petrópolis - RJ", "(24) 2291-4291", ""),
+    ("centro", "Petrópolis · Centro", "Rua 16 de Março, 138 · Centro · Petrópolis - RJ", "(24) 3616-2088",
+     "https://www.ifood.com.br/delivery/petropolis-rj/casa-do-alemao-centro-centro/b2d1230d-0a9b-44e4-89db-7e931d5e68df"),
+    ("itaipava", "Petrópolis · Itaipava", "Estrada União e Indústria, 9500, lojas 1 a 3 · Itaipava · Petrópolis - RJ", "(24) 99305-2522",
+     "https://www.ifood.com.br/delivery/petropolis-rj/casa-do-alemao-itaipava-itaipava/24ba39bc-2a56-4ddb-868f-1b648cca8660"),
+    ("br040-subida", "BR-040 · Subida (sentido Petrópolis)", "Rodovia Washington Luiz, km 13 · Duque de Caxias - RJ", "(21) 2676-1292", ""),
+    ("br040-descida", "BR-040 · Descida (sentido Rio)", "Rodovia Washington Luiz, km 13 · Duque de Caxias - RJ", "(21) 2676-1499", ""),
+    ("barra", "Barra da Tijuca", "Av. das Américas, 1699 · Barra da Tijuca · Rio de Janeiro - RJ", "(21) 2497-2629",
+     "https://www.ifood.com.br/delivery/rio-de-janeiro-rj/casa-do-alemao-barra-da-tijuca/93538c48-4dcd-4020-b0d7-b2b5d08add1e"),
+    ("dutra-meriti", "Dutra · São João de Meriti (sentido São Paulo)", "Rodovia Presidente Dutra, km 6 · São João de Meriti - RJ", "(21) 2751-1294",
+     "https://www.ifood.com.br/delivery/sao-joao-de-meriti-rj/casa-do-alemao-jardim-meriti/f9029d9f-eaf1-4d03-8e88-93cd60259a0d"),
+    ("itaborai", "BR-101 · Itaboraí (sentido Região dos Lagos)", "Rodovia BR-101, km 284, Posto Amigo de Itaboraí · Itaboraí - RJ", "(21) 3637-2423", ""),
+    ("tangua", "BR-101 · Tanguá (sentido Rio)", "Rodovia BR-101, km 276,6, Posto Retiro dos Bandeirantes · Tanguá - RJ", "(21) 96628-6954", ""),
+]
+
 HISTORIA = (
     "Tudo começou em 1945, em Petrópolis, na Panificação Quitandinha, famosa pelos biscoitos amanteigados. "
     "Com a chegada do casal Stephan e Julka Kern vieram os doces e os embutidos — e o Sr. Stephan, no balcão, "
@@ -291,6 +309,8 @@ def main():
             "historia": HISTORIA,
         },
         "secoes": secoes,
+        "lojas": [{"id": i, "nome": n, "endereco": e, "telefone": tel, "ifood": f, "ordem": k}
+                  for k, (i, n, e, tel, f) in enumerate(LOJAS)],
         "itens": [{"id": i, "secao": s, "nome": n, "desc": d, "preco": p, "preco2": p2, "tag": t,
                    "foto": foto(f) if f else "", "esgotado": False}
                   for i, s, n, d, p, p2, t, f in ITENS],
@@ -301,7 +321,7 @@ def main():
     io.open(saida, "w", encoding="utf-8").write(texto)
     maior = max(len(json.dumps(i)) for i in semente["itens"])
     sem_preco = [f"{i['nome']} ({i['tag']})" for i in semente["itens"] if not i["preco"]]
-    print(f"semente.js {os.path.getsize(saida)//1024} KB | {len(secoes)} seções | {len(semente['itens'])} itens | "
+    print(f"semente.js {os.path.getsize(saida)//1024} KB | {len(secoes)} seções | {len(semente['itens'])} itens | {len(LOJAS)} lojas | "
           f"{sum(1 for i in semente['itens'] if i['foto'])} com foto | maior item {maior//1024} KB")
     if sem_preco: print("Sem preço (conferir no cardápio):", ", ".join(sem_preco))
 

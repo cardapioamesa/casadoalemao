@@ -114,13 +114,21 @@
       const lote = db.batch();
       lote.set(refRest, { site: S.site, secoes: S.secoes, atualizadoEm: firebase.firestore.FieldValue.serverTimestamp() });
       lote.set(refRest.collection("privado").doc("acesso"), { donos });
+      // Lojas da rede (se houver). Na primeira carga entram com o pedido na
+      // mesa desligado; ao substituir, só os dados de contato são atualizados.
+      (S.lojas || []).forEach(l => {
+        const campos = { nome: l.nome, endereco: l.endereco, telefone: l.telefone, ifood: l.ifood, ordem: l.ordem };
+        const ref = refRest.collection("lojas").doc(l.id);
+        if (atual.exists) lote.set(ref, campos, { merge: true });
+        else lote.set(ref, Object.assign(campos, { pedidoNaMesa: false, esgotados: [] }));
+      });
       S.itens.forEach((it, i) => {
         const campos = Object.assign({}, it); delete campos.id;
         campos.ordem = i;
         lote.set(refRest.collection("itens").doc(it.id), campos);
       });
       await lote.commit();
-      msg(`Pronto: ${S.itens.length} itens carregados. Quem pode editar: ${donos.map(x => x.replace(/[&<>"]/g, "")).join(", ")}.<br>` +
+      msg(`Pronto: ${S.itens.length} itens${(S.lojas || []).length ? " e " + S.lojas.length + " lojas" : ""} carregados. Quem pode editar: ${donos.map(x => x.replace(/[&<>"]/g, "")).join(", ")}.<br>` +
           `<a href="./">Abrir o cardápio</a>`, true);
     } catch (e) {
       console.error(e);
